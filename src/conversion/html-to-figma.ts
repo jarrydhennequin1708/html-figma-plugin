@@ -1,6 +1,26 @@
 // FIXED HTML to Figma Converter - Faithful CSS Conversion
 // Removes ALL smart defaults and interprets CSS exactly as written
 
+// CRITICAL FIX: Clean quotes from CSS values
+function cleanQuotesFromCSS(styles: any): any {
+  if (!styles || typeof styles !== 'object') return styles;
+  const cleaned: any = {};
+  for (const [key, value] of Object.entries(styles)) {
+    if (typeof value === 'string' && value.length >= 2) {
+      if ((value.startsWith("'") && value.endsWith("'")) || 
+          (value.startsWith('"') && value.endsWith('"'))) {
+        cleaned[key] = value.slice(1, -1);
+        console.log(`🧹 CLEANED: ${key} = ${value} → ${cleaned[key]}`);
+      } else {
+        cleaned[key] = value;
+      }
+    } else {
+      cleaned[key] = value;
+    }
+  }
+  return cleaned;
+}
+
 // CSS Layout Pattern Detection System
 interface LayoutContext {
   isLayoutContainer: boolean;
@@ -1046,7 +1066,7 @@ class SimpleCSSParser {
       
       if (Object.keys(declarations).length > 0) {
         // CRITICAL: Apply quote removal to all declarations
-        const cleanedDeclarations = stripQuotesFromAllValues(declarations);
+        const cleanedDeclarations = cleanQuotesFromCSS(stripQuotesFromAllValues(declarations));
         
         this.rules.push({
           selector,
@@ -1331,11 +1351,15 @@ export class HTMLToFigmaConverter {
     // This is a more aggressive approach that handles all quote patterns
     let cleanedCSS = css;
     
+    // EMERGENCY: More aggressive quote removal patterns
     // Remove quotes from property values - handle all patterns
     cleanedCSS = cleanedCSS.replace(/:\s*'([^']*)'/g, ': $1');  // Single quotes
     cleanedCSS = cleanedCSS.replace(/:\s*"([^"]*)"/g, ': $1');  // Double quotes
     cleanedCSS = cleanedCSS.replace(/:\s*'([^']*)'(?=[;,\s}])/g, ': $1'); // Single quotes before delimiters
     cleanedCSS = cleanedCSS.replace(/:\s*"([^"]*)"(?=[;,\s}])/g, ': $1'); // Double quotes before delimiters
+    // Additional patterns
+    cleanedCSS = cleanedCSS.replace(/:\s*["']([^"']+)["']/g, ': $1'); // Any quotes
+    cleanedCSS = cleanedCSS.replace(/:\s*\\?["']([^"']+)\\?["']/g, ': $1'); // Escaped quotes
     
     if (cleanedCSS !== css) {
       console.warn('[CSS FIX] Removed quotes from CSS input');
@@ -1510,6 +1534,10 @@ export class HTMLToFigmaConverter {
     // CRITICAL: Verify CSS rule matching
     console.log('[CSS DEBUG] Checking CSS rule matches for', className);
     this.cssParser!.rules.forEach((rule, index) => {
+      // CRITICAL FIX: Clean quotes from rule declarations before checking
+      const originalDeclarations = rule.declarations;
+      rule.declarations = cleanQuotesFromCSS(rule.declarations);
+      
       const matches = this.cssParser!.matchesSelector(element, rule.selector);
       if (matches) {
         console.log(`  ✅ Rule ${index} MATCHES: ${rule.selector}`, rule.declarations);
@@ -1517,6 +1545,8 @@ export class HTMLToFigmaConverter {
         // Log key non-matches for debugging
         if (rule.selector.includes('flex') || rule.selector.includes('grid')) {
           console.log(`  ❌ Rule ${index} DOES NOT MATCH: ${rule.selector}`);
+          console.log(`     Original declarations:`, originalDeclarations);
+          console.log(`     Cleaned declarations:`, rule.declarations);
           // DEBUG: Check if display value has quotes
           if (rule.declarations.display) {
             console.log(`     Display value: "${rule.declarations.display}"`);
