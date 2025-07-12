@@ -1,5 +1,7 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const fs = require('fs');
+const webpack = require('webpack');
 
 module.exports = (env, argv) => ({
   mode: argv.mode === 'production' ? 'production' : 'development',
@@ -35,6 +37,10 @@ module.exports = (env, argv) => ({
       filename: 'ui.html',
       inject: false, // Don't inject scripts since we have inline script
       chunks: [], // Don't include any JS chunks
+    }),
+    // Inject the UI HTML as a global __html__ variable
+    new webpack.DefinePlugin({
+      __html__: JSON.stringify(fs.readFileSync(path.resolve(__dirname, './src/ui/ui.html'), 'utf8'))
     }),
   ],
   
