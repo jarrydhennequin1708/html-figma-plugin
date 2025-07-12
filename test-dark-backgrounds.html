@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dark Background Test</title>
+  <style>
+    /* Test dark backgrounds like in Klarna */
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #000000;
+    }
+    
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      background-color: #000000;
+    }
+    
+    .card {
+      background-color: #1a1a1a;
+      border: 1px solid #333333;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      background-color: #111111;
+      border-bottom: 1px solid #333333;
+    }
+    
+    h1 {
+      color: #ffffff;
+      font-size: 32px;
+      margin: 0;
+    }
+    
+    h2 {
+      color: #ffffff;
+      font-size: 24px;
+      margin: 0 0 16px 0;
+    }
+    
+    p {
+      color: #cccccc;
+      font-size: 16px;
+      line-height: 1.5;
+    }
+    
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+      margin-top: 24px;
+    }
+    
+    .grid-item {
+      background-color: #222222;
+      border: 1px solid #444444;
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+    }
+    
+    .value {
+      color: #00ff00;
+      font-size: 48px;
+      font-weight: bold;
+    }
+    
+    .label {
+      color: #888888;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Dark Theme Test</h1>
+    <span class="label">HEADER</span>
+  </div>
+  
+  <div class="container">
+    <div class="card">
+      <h2>Card with Dark Background</h2>
+      <p>This card should have a #1a1a1a background with a #333333 border.</p>
+    </div>
+    
+    <div class="grid">
+      <div class="grid-item">
+        <div class="value">$1,234</div>
+        <div class="label">Revenue</div>
+      </div>
+      <div class="grid-item">
+        <div class="value">567</div>
+        <div class="label">Orders</div>
+      </div>
+      <div class="grid-item">
+        <div class="value">89%</div>
+        <div class="label">Growth</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
