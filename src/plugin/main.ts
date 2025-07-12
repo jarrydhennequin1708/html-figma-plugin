@@ -57,6 +57,9 @@ figma.ui.onmessage = async (msg) => {
       // Add to page first
       figma.currentPage.appendChild(container);
       
+      // CRITICAL: Set container to reasonable size to avoid 1px issues
+      container.resize(1400, 800);
+      
       // Create nodes with all fixes applied
       for (const element of elements) {
         try {
@@ -229,6 +232,9 @@ async function createFrameNodeWithFixes(element: any, parent: FrameNode, propert
       frame.layoutMode = element.layoutMode;
     }
     
+    // REMOVED: Don't override sizing modes from element data
+    // The SizingStrategy should handle this intelligently
+    /*
     if (element.primaryAxisSizingMode) {
       frame.primaryAxisSizingMode = element.primaryAxisSizingMode;
     }
@@ -236,6 +242,7 @@ async function createFrameNodeWithFixes(element: any, parent: FrameNode, propert
     if (element.counterAxisSizingMode) {
       frame.counterAxisSizingMode = element.counterAxisSizingMode;
     }
+    */
     
     if (element.primaryAxisAlignItems) {
       frame.primaryAxisAlignItems = element.primaryAxisAlignItems;

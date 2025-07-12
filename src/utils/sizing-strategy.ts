@@ -36,7 +36,8 @@ export class SizingStrategy {
     if (maxWidth && maxWidth > 0) {
       // Max-width containers (like dashboard-container)
       if ('layoutSizingHorizontal' in node) {
-        node.layoutSizingHorizontal = 'FIXED';
+        node.layoutSizingHorizontal = 'FILL'; // Changed from FIXED to FILL for max-width containers
+        console.log('[SizingStrategy] Max-width container - using FILL mode');
       }
       
       // Center if margin: 0 auto
@@ -53,10 +54,12 @@ export class SizingStrategy {
       if (this.shouldFillWidth(properties, context)) {
         if ('layoutSizingHorizontal' in node) {
           node.layoutSizingHorizontal = 'FILL';
+          console.log('[SizingStrategy] No width specified - using FILL mode for:', node.name);
         }
       } else {
         if ('layoutSizingHorizontal' in node) {
           node.layoutSizingHorizontal = 'HUG';
+          console.log('[SizingStrategy] No width specified - using HUG mode for:', node.name);
         }
       }
     }
