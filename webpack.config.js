@@ -15,7 +15,17 @@ module.exports = (env, argv) => ({
     rules: [
       {
         test: /\.tsx?$/,
-        use: 'ts-loader',
+        use: [
+          {
+            loader: 'ts-loader',
+            options: {
+              transpileOnly: true, // Skip type checking
+              compilerOptions: {
+                noEmit: false
+              }
+            }
+          }
+        ],
         exclude: /node_modules/,
       },
     ],

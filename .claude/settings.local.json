@@ -16,7 +16,11 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(./cleanup.sh:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(npm i:*)",
+      "Bash(cat:*)",
+      "Bash(npx webpack:*)",
+      "Bash(chmod:*)"
     ],
     "deny": []
   }

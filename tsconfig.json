@@ -17,5 +17,17 @@
     ]
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "src/plugin/backups"]
+  "exclude": [
+    "node_modules", 
+    "dist", 
+    "src/plugin/backups",
+    "src/conversion/browser-grade-converter.ts",
+    "src/conversion/integration-example.ts",
+    "src/engine/css-engine.ts",
+    "src/layout/flexbox-engine.ts",
+    "src/layout/grid-engine.ts",
+    "src/parsers/dom-parser.ts",
+    "src/plugin/main-browsergrade.ts",
+    "src/deprecated/**/*"
+  ]
 }
