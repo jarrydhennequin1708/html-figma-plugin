@@ -17,28 +17,45 @@ export class SizingStrategy {
     
     // RULE 1: Vertical sizing - Always HUG unless explicit height
     if (properties.height && properties.height > 0) {
-      node.resize(node.width, properties.height);
+      // Only resize height if explicitly set
       if ('layoutSizingVertical' in node) {
         node.layoutSizingVertical = 'FIXED';
+        node.resize(node.width, properties.height);
       }
     } else {
+      // Default: HUG content vertically
       if ('layoutSizingVertical' in node) {
         node.layoutSizingVertical = 'HUG';
       }
+      // Don't set any height - let Auto Layout determine it
     }
     
     // RULE 2: Horizontal sizing - Smart logic based on context
     if (properties.width && properties.width > 0) {
       // Explicit width - use FIXED
-      node.resize(properties.width, node.height);
       if ('layoutSizingHorizontal' in node) {
         node.layoutSizingHorizontal = 'FIXED';
+        // Only resize if we have both dimensions
+        if (properties.height && properties.height > 0) {
+          node.resize(properties.width, properties.height);
+        } else {
+          // Only set width, let Auto Layout handle height
+          const currentHeight = node.height > 1 ? node.height : 1;
+          node.resize(properties.width, currentHeight);
+        }
       }
     } else if (properties.maxWidth && properties.maxWidth > 0) {
       // Max-width containers (like dashboard-container)
-      node.resize(properties.maxWidth, node.height);
       if ('layoutSizingHorizontal' in node) {
         node.layoutSizingHorizontal = 'FIXED';
+        // Only resize if we have both dimensions
+        if (properties.height && properties.height > 0) {
+          node.resize(properties.maxWidth, properties.height);
+        } else {
+          // Only set width, let Auto Layout handle height
+          const currentHeight = node.height > 1 ? node.height : 1;
+          node.resize(properties.maxWidth, currentHeight);
+        }
       }
       
       // Center if margin: 0 auto

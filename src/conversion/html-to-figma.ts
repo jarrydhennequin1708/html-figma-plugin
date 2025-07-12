@@ -124,7 +124,7 @@ class SizingStrategyResolver {
     if (isMainFrame) {
       return {
         width: 1400,
-        height: 100,
+        height: 0, // No height - let content determine
         usesLayoutSizing: false,
         shouldFillParent: false,
         isCentered: false,
@@ -151,7 +151,7 @@ class SizingStrategyResolver {
       console.log('[SIZING STRATEGY] Child of layout container - should FILL width');
       return {
         width: 300, // Initial width - will be overridden by FILL
-        height: 100, // Initial height - will be overridden by HUG
+        height: 0, // No height - will be handled by HUG
         usesLayoutSizing: true,
         shouldFillParent: true,
         isCentered: false,
@@ -205,7 +205,7 @@ class SizingStrategyResolver {
     if (context.isFlexItem) {
       return {
         width: 100,
-        height: 100,
+        height: 0, // No height - let Auto Layout HUG
         usesLayoutSizing: true,
         shouldFillParent: true,
         isCentered: false,
@@ -218,7 +218,7 @@ class SizingStrategyResolver {
       const maxWidth = this.parseDimension(styles['max-width']);
       return {
         width: maxWidth || 1400, // Use actual max-width value
-        height: 100,
+        height: 0, // No height - let Auto Layout HUG
         usesLayoutSizing: true,
         shouldFillParent: false, // Don't fill parent, use max-width
         isCentered: true,
@@ -237,7 +237,7 @@ class SizingStrategyResolver {
       console.log('[FLEX CHILD] Element with explicit width inside flex container:', explicitWidth);
       return {
         width: explicitWidth,  // Use CSS width
-        height: this.parseDimension(styles.height) || 100,
+        height: this.parseDimension(styles.height) || 0, // No default height
         usesLayoutSizing: true,
         shouldFillParent: false, // Don't fill, but participate in flex
         isCentered: false,
@@ -288,7 +288,7 @@ class SizingStrategyResolver {
       console.log('[CONTAINER SECTION] Detected container section, applying FILL width + HUG height');
       return {
         width: 100,   // Will be overridden by FILL
-        height: 100,  // Will be overridden by HUG
+        height: 0,    // No height - will be handled by HUG
         usesLayoutSizing: true,
         shouldFillParent: true,
         isCentered: false,
@@ -306,7 +306,7 @@ class SizingStrategyResolver {
       const isChild = !!context.parentContext;
       return {
         width: 100,
-        height: 100,
+        height: 0, // No height - let Auto Layout HUG
         usesLayoutSizing: true,
         shouldFillParent: isChild, // Fill parent if it's a child
         isCentered: false,
@@ -318,7 +318,7 @@ class SizingStrategyResolver {
     const width = this.parseDimension(styles.width) || 
                   this.parseDimension(styles['max-width']) || 
                   300; // Reasonable default width
-    const height = this.parseDimension(styles.height) || 100; // Reasonable default height
+    const height = this.parseDimension(styles.height) || 0; // No default height - let Auto Layout HUG
     
     return {
       width,
@@ -2549,7 +2549,7 @@ export class HTMLToFigmaConverter {
     
     // Default content size
     console.log('[CONTENT SIZE] Default content element');
-    return { width: 200, height: 100, usesLayoutSizing: false };
+    return { width: 200, height: 0, usesLayoutSizing: false }; // No default height
   }
 
   private generateNodeName(element: SimpleElement): string {

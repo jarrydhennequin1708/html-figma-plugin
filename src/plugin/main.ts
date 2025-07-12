@@ -154,6 +154,9 @@ async function createFrameNodeWithFixes(element: any, parent: FrameNode, propert
   const frame = figma.createFrame();
   frame.name = element.name || 'Frame';
   
+  // Set minimal initial size - will be adjusted by Auto Layout
+  frame.resize(1, 1);
+  
   // STEP 1: Add to parent immediately (enables all properties)
   parent.appendChild(frame);
   console.log('[ORDER] Step 1: Added frame to parent');
@@ -213,25 +216,9 @@ async function createFrameNodeWithFixes(element: any, parent: FrameNode, propert
   
   console.log('[ORDER] Step 2: Applied all visual properties');
   
-  // STEP 3: Set initial size ONLY if provided (sizing strategy will handle defaults)
-  // Don't set default dimensions - let Auto Layout handle it
-  if (element.width && element.width > 0) {
-    if (element.height && element.height > 0) {
-      frame.resize(element.width, element.height);
-      console.log('[ORDER] Step 3: Set explicit size:', element.width, 'x', element.height);
-    } else {
-      frame.resize(element.width, 100); // Width only, height will be HUG
-      console.log('[ORDER] Step 3: Set width only:', element.width);
-    }
-  } else if (properties.width || properties.maxWidth) {
-    // Use CSS values if element doesn't have explicit dimensions
-    const cssWidth = properties.width || properties.maxWidth || 0;
-    if (cssWidth > 0) {
-      frame.resize(cssWidth, 100); // Height will be adjusted by sizing strategy
-      console.log('[ORDER] Step 3: Set CSS width:', cssWidth);
-    }
-  }
-  // If no dimensions, don't resize - let Auto Layout handle it
+  // STEP 3: Skip initial sizing - let sizing strategy handle everything
+  // The sizing strategy in Step 5 will properly set dimensions and sizing modes
+  console.log('[ORDER] Step 3: Skipping initial resize - will be handled by sizing strategy');
   
   // STEP 4: Apply Auto Layout with actual CSS values
   if (element.layoutMode && element.layoutMode !== 'NONE') {
