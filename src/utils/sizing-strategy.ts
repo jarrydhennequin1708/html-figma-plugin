@@ -23,8 +23,14 @@ export class SizingStrategy {
     const maxWidth = properties.maxWidth;
     const height = properties.height;
     
-    // VERTICAL SIZING - Always HUG unless explicit height
-    if (height && height > 0) {
+    // VERTICAL SIZING - Handle 'auto' height properly
+    if (properties.height === 'auto' || !height) {
+      // Height auto or not specified: HUG content
+      if ('layoutSizingVertical' in node) {
+        node.layoutSizingVertical = 'HUG';
+        console.log('[SizingStrategy] Height auto/unspecified - using HUG for:', node.name);
+      }
+    } else if (height && height > 0) {
       // Explicit height - use FIXED
       if ('layoutSizingVertical' in node) {
         node.layoutSizingVertical = 'FIXED';
@@ -90,6 +96,29 @@ export class SizingStrategy {
   }
   
   private static shouldFillWidth(properties: any, context: any): boolean {
+    const elementName = properties.elementData?.name || '';
+    const className = properties.elementData?.className || '';
+    
+    console.log('[SizingStrategy] Checking shouldFillWidth for:', elementName || className);
+    
+    // 🏷️ BADGES should always HUG content
+    if (className.includes('badge') || elementName.includes('badge')) {
+      console.log('[SizingStrategy] Badge element detected - should HUG');
+      return false;
+    }
+    
+    // 🖼️ LOGOS should HUG unless explicitly sized
+    if (className.includes('logo') || elementName.includes('logo')) {
+      console.log('[SizingStrategy] Logo element detected - should HUG');
+      return false;
+    }
+    
+    // Elements with padding but no explicit width should HUG
+    if ((properties.padding || properties.paddingLeft || properties.paddingRight) && !properties.width) {
+      console.log('[SizingStrategy] Padded element without width - should HUG');
+      return false;
+    }
+    
     // Already marked to fill
     if (properties.shouldFillParent) return true;
     
@@ -110,15 +139,18 @@ export class SizingStrategy {
     // Container elements (flex/grid) should FILL
     if (properties.display === 'flex' || properties.display === 'grid') return true;
     
-    // Child elements in Auto Layout containers should usually FILL
-    if (context.isChild && context.parentDisplay === 'flex') return true;
-    
     // Text elements should HUG
     if (properties.isTextElement) return false;
     if (properties.layoutHints && properties.layoutHints.isTextElement) return false;
     
-    // Default to FILL for child elements
-    return context.isChild;
+    // Child elements in Auto Layout containers should FILL only if they're containers
+    if (context.isChild && context.parentDisplay === 'flex') {
+      // But not if they're badges, logos, or other special elements
+      return properties.display === 'flex' || properties.display === 'grid';
+    }
+    
+    // Default to HUG for elements without explicit width
+    return false;
   }
   
   static applyLayoutProperties(node: FrameNode, properties: any): void {

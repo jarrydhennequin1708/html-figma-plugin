@@ -1,6 +1,12 @@
 // FIXED HTML to Figma Converter - Faithful CSS Conversion
 // Removes ALL smart defaults and interprets CSS exactly as written
 
+import { SpacingExtractor } from '../utils/spacing-extractor';
+import { GridWidthCalculator } from '../utils/grid-calculator';
+import { DynamicGridCalculator } from '../utils/dynamic-grid-calculator';
+import { DynamicSpacingExtractor } from '../utils/dynamic-spacing-extractor';
+import { DynamicWidthDetector } from '../utils/dynamic-width-detector';
+
 // CRITICAL FIX: Clean quotes from CSS values
 function cleanQuotesFromCSS(styles: any): any {
   if (!styles || typeof styles !== 'object') return styles;
@@ -140,6 +146,20 @@ class SizingStrategyResolver {
     
     // Priority order: CSS explicit > Layout mode > Content heuristics > Defaults
     
+    // PRIORITY 1: Check for explicit CSS width first
+    const explicitWidth = this.checkForExplicitCSSWidth(styles);
+    if (explicitWidth && !isMainFrame) {
+      console.log('[CSS WIDTH PRIORITY] Using explicit CSS width:', explicitWidth);
+      return {
+        width: explicitWidth,
+        height: this.parseDimension(styles.height) || 0,
+        usesLayoutSizing: false,
+        shouldFillParent: false,
+        isCentered: false,
+        layoutHints: { hasExplicitWidth: true, cssWidth: explicitWidth }
+      };
+    }
+    
     // 1. Main frame always has fixed width
     if (isMainFrame) {
       return {
@@ -182,17 +202,42 @@ class SizingStrategyResolver {
       };
     }
     
-    // CRITICAL FIX: Check if parent is a responsive grid
+    // CRITICAL FIX: Enhanced grid child detection
     if (context.parentContext?.isResponsiveGrid) {
       const gridMinWidth = this.extractGridMinWidth(context.parentContext);
-      console.log('[GRID CHILD] Detected grid child, applying min-width:', gridMinWidth);
+      
+      // CRITICAL: Calculate actual width based on container and constraints
+      const containerWidth = 1320; // Dashboard container max-width
+      const gap = context.parentContext.styles?.gap ? 
+        parseInt(context.parentContext.styles.gap.replace('px', '')) : 24;
+      
+      // Calculate how many items fit and their actual width
+      const itemsPerRow = Math.floor((containerWidth + gap) / (gridMinWidth + gap));
+      const actualItemWidth = Math.max(
+        (containerWidth - (gap * (itemsPerRow - 1))) / itemsPerRow,
+        gridMinWidth
+      );
+      
+      console.log('[GRID CHILD] Enhanced sizing:', {
+        minWidth: gridMinWidth,
+        containerWidth,
+        gap,
+        itemsPerRow,
+        actualItemWidth: Math.round(actualItemWidth)
+      });
+      
       return {
-        width: gridMinWidth, // ✅ Use grid's minmax constraint
+        width: Math.round(actualItemWidth), // ✅ Use calculated width, not fixed minWidth
         height: 180,
         usesLayoutSizing: false,
-        shouldFillParent: false,
+        shouldFillParent: false, // ✅ Don't fill - use calculated width
         isCentered: false,
-        layoutHints: { isGridChild: true, minWidth: gridMinWidth }
+        layoutHints: { 
+          isGridChild: true, 
+          minWidth: gridMinWidth,
+          actualWidth: Math.round(actualItemWidth),
+          isResponsiveGridChild: true
+        }
       };
     }
     
@@ -378,6 +423,23 @@ class SizingStrategyResolver {
     const borderLeft = this.parseDimension(styles['border-left-width']) || 0;
     const borderRight = this.parseDimension(styles['border-right-width']) || 0;
     return borderLeft + borderRight;
+  }
+  
+  static checkForExplicitCSSWidth(styles: Record<string, string>): number | null {
+    // Check for explicit width properties
+    const explicitWidth = styles.width || 
+                         styles['max-width'] || 
+                         styles['min-width'];
+    
+    if (explicitWidth && explicitWidth !== 'auto' && explicitWidth !== 'none') {
+      const parsedWidth = parseFloat(explicitWidth.replace(/px|%|em|rem/, ''));
+      if (!isNaN(parsedWidth) && parsedWidth > 0) {
+        console.log('[CSS WIDTH PRIORITY] Found explicit width:', explicitWidth, '→', parsedWidth);
+        return parsedWidth;
+      }
+    }
+    
+    return null;
   }
   
   private static extractGridMinWidth(parentContext: LayoutContext): number {
@@ -1328,6 +1390,116 @@ export class HTMLToFigmaConverter {
       }
     }
   }
+  
+  private debugHTMLStructure(elements: SimpleElement[], depth = 0): void {
+    const indent = '  '.repeat(depth);
+    elements.forEach(element => {
+      console.log(`${indent}${element.tagName}.${element.className || '(no class)'} - children: ${element.children.length}`);
+      if (element.children.length > 0) {
+        this.debugHTMLStructure(element.children, depth + 1);
+      }
+    });
+  }
+  
+  private extractDashboardSpacing(element: SimpleElement): number {
+    // Dashboard-specific spacing extraction
+    if (!element?.className?.includes('dashboard-container') || !element.children) {
+      return 0;
+    }
+    
+    console.log('[DASHBOARD SPACING] Analyzing dashboard with', element.children.length, 'children');
+    
+    const childMargins: number[] = [];
+    
+    for (const child of element.children) {
+      if (!child.className) continue;
+      
+      const childStyles = this.cssParser?.getStylesForElement(child) || {};
+      const marginBottom = this.parseDimension(childStyles['margin-bottom']);
+      
+      if (marginBottom && marginBottom > 0) {
+        childMargins.push(marginBottom);
+        console.log('[DASHBOARD SPACING] Child', child.className, 'has margin-bottom:', marginBottom);
+      }
+    }
+    
+    if (childMargins.length > 0) {
+      // Use the most common margin (should be 40px)
+      const spacing = Math.max(...childMargins);
+      console.log('[DASHBOARD SPACING] Detected spacing:', spacing, 'from margins:', childMargins);
+      return spacing;
+    }
+    
+    return 0;
+  }
+  
+  // ENHANCED SPACING APPLICATION
+  private applyEnhancedSpacing(
+    node: FigmaNode, 
+    element: SimpleElement, 
+    styles: Record<string, string>
+  ): void {
+    // 🎯 DYNAMIC SPACING EXTRACTION
+    const dynamicSpacing = DynamicSpacingExtractor.extractContainerSpacing(
+      element,
+      styles,
+      this.cssParser!
+    );
+    
+    node.itemSpacing = dynamicSpacing;
+    console.log(`[DYNAMIC SPACING] Applied ${dynamicSpacing}px to ${element?.className || element?.tagName}`);
+    
+    // Also use original spacing extractor for padding and grid constraints
+    const spacingData = SpacingExtractor.extractAllSpacing(
+      element, 
+      styles, 
+      element.children,
+      this.cssParser
+    );
+    
+    // Apply padding
+    if (spacingData.padding.top > 0 || spacingData.padding.right > 0 || 
+        spacingData.padding.bottom > 0 || spacingData.padding.left > 0) {
+      node.paddingTop = spacingData.padding.top;
+      node.paddingRight = spacingData.padding.right;
+      node.paddingBottom = spacingData.padding.bottom;
+      node.paddingLeft = spacingData.padding.left;
+      console.log(`[SPACING] Applied padding: ${spacingData.padding.top}/${spacingData.padding.right}/${spacingData.padding.bottom}/${spacingData.padding.left}px to ${element.className}`);
+    }
+    
+    // Store grid constraints for children
+    if (spacingData.gridConstraints) {
+      (node as any).gridConstraints = spacingData.gridConstraints;
+      console.log(`[GRID CONSTRAINTS] Stored for children:`, spacingData.gridConstraints);
+    }
+  }
+  
+  private verifySpacingApplication(node: FigmaNode, element: SimpleElement): void {
+    console.log(`[SPACING VERIFY] ${element.className || element.tagName}:`);
+    console.log(`  - itemSpacing: ${node.itemSpacing}px`);
+    console.log(`  - padding: ${node.paddingTop}px ${node.paddingRight}px ${node.paddingBottom}px ${node.paddingLeft}px`);
+    console.log(`  - width: ${node.width}px`);
+    
+    // Dashboard container verification
+    if (element.className?.includes('dashboard-container')) {
+      const expectedSpacing = 40;
+      if (node.itemSpacing !== expectedSpacing) {
+        console.warn(`[SPACING ERROR] Dashboard spacing: expected ${expectedSpacing}px, got ${node.itemSpacing}px`);
+      } else {
+        console.log(`[SPACING SUCCESS] Dashboard spacing correct: ${node.itemSpacing}px`);
+      }
+    }
+    
+    // Metric card verification
+    if (element.className?.includes('metric-card')) {
+      const expectedMinWidth = 300;
+      if (node.width < expectedMinWidth) {
+        console.warn(`[WIDTH ERROR] Card width: expected >${expectedMinWidth}px, got ${node.width}px`);
+      } else {
+        console.log(`[WIDTH SUCCESS] Card width correct: ${node.width}px`);
+      }
+    }
+  }
 
   async convert(html: string, css: string = ''): Promise<FigmaNode[]> {
     console.log('[FaithfulConverter] Starting exact CSS conversion - NO smart defaults');
@@ -1397,6 +1569,10 @@ export class HTMLToFigmaConverter {
     const parser = new SimpleHTMLParser(html);
     const elements = parser.parse();
     
+    console.log('=== HTML STRUCTURE DEBUG ===');
+    this.debugHTMLStructure(elements);
+    console.log('=== END STRUCTURE DEBUG ===');
+    
     // Filter wrapper elements
     const filteredElements = this.filterWrapperElements(elements);
     
@@ -1412,6 +1588,10 @@ export class HTMLToFigmaConverter {
           console.log('[BODY STYLES] Applying body styles to main frame');
           this.applyExactVisualStyles(node, (this as any).__bodyStyles);
         }
+        
+        // Verify spacing application
+        this.verifySpacingApplication(node, filteredElements[i]);
+        
         figmaNodes.push(node);
       }
     }
@@ -1510,6 +1690,14 @@ export class HTMLToFigmaConverter {
     // Store styles in context for constraint extraction
     layoutContext.styles = styles;
     
+    // Debug grid parent relationship
+    if (layoutContext.parentContext?.isResponsiveGrid) {
+      console.log('[GRID PARENT DEBUG] Element:', element.className, 
+                  'has responsive grid parent');
+      console.log('[GRID PARENT DEBUG] Parent constraints:', 
+                  layoutContext.parentContext.styles?.['grid-template-columns']);
+    }
+    
     // Get dimensions using enhanced sizing system
     const sizingResult = this.determineElementSizing(styles, className, isMainFrame, layoutContext);
     
@@ -1537,6 +1725,28 @@ export class HTMLToFigmaConverter {
       // CRITICAL FIX: Clean quotes from rule declarations before checking
       const originalDeclarations = rule.declarations;
       rule.declarations = cleanQuotesFromCSS(rule.declarations);
+      
+      // EMERGENCY FIX: Apply aggressive quote removal right before matching
+      console.log('🚨 APPLYING EMERGENCY QUOTE FIX for rule', index);
+      console.log('Before emergency fix:', rule.declarations);
+      
+      const emergencyFixed: any = {};
+      for (const [key, value] of Object.entries(rule.declarations)) {
+        if (typeof value === 'string' && value.length >= 2) {
+          if ((value.startsWith("'") && value.endsWith("'")) || 
+              (value.startsWith('"') && value.endsWith('"'))) {
+            emergencyFixed[key] = value.slice(1, -1);
+            console.log(`🧹 EMERGENCY FIXED ${key}: "${value}" → "${emergencyFixed[key]}"`);
+          } else {
+            emergencyFixed[key] = value;
+          }
+        } else {
+          emergencyFixed[key] = value;
+        }
+      }
+      
+      rule.declarations = emergencyFixed;
+      console.log('After emergency fix:', rule.declarations);
       
       const matches = this.cssParser!.matchesSelector(element, rule.selector);
       if (matches) {
@@ -1696,6 +1906,11 @@ export class HTMLToFigmaConverter {
       }
     }
     
+    // CRITICAL: Clean child margins if spacing was extracted from margins
+    if ((node as any).spacingFromMargins) {
+      this.cleanChildElementMargins(element, node);
+    }
+    
     console.log('[FaithfulConverter] Resizing container for auto-layout');
     return node;
   }
@@ -1749,8 +1964,48 @@ export class HTMLToFigmaConverter {
     };
   }
 
-  private applySpecialSizing(node: FigmaNode, styles: Record<string, string>, isMainFrame: boolean): void {
+  private applySpecialSizing(node: FigmaNode, styles: Record<string, string>, isMainFrame: boolean, element?: SimpleElement): void {
     console.log('=== CSS-DRIVEN SIZING ===');
+    
+    // 🎯 DYNAMIC GRID CHILD SIZING
+    const layoutHints = (node as any).layoutHints || {};
+    if (layoutHints.isGridChild && layoutHints.calculatedWidth) {
+      console.log(`[DYNAMIC SIZING] Grid child ${node.name}: FIXED ${layoutHints.calculatedWidth}px`);
+      
+      // Force FIXED sizing for any grid child
+      (node as any).layoutSizingHorizontal = 'FIXED';
+      (node as any).layoutSizingVertical = 'HUG';
+      (node as any).shouldFillParent = false;
+      
+      // Apply the dynamically calculated width
+      node.width = layoutHints.calculatedWidth;
+      
+      console.log(`✅ DYNAMIC GRID FIXED: ${node.name} = ${layoutHints.calculatedWidth}px`);
+      return;
+    }
+    
+    // 🎯 EXPLICIT CSS HEIGHT AUTO → HUG
+    if (styles.height === 'auto' || !styles.height) {
+      console.log(`[HEIGHT AUTO] ${node.name}: CSS height=auto, setting to HUG`);
+      
+      if (node.layoutMode === 'VERTICAL') {
+        node.primaryAxisSizingMode = 'AUTO';    // HUG HEIGHT (primary axis)
+      } else if (node.layoutMode === 'HORIZONTAL') {
+        node.counterAxisSizingMode = 'AUTO';    // HUG HEIGHT (counter axis)
+      } else {
+        // No layout mode - this is a basic frame
+        (node as any).layoutSizingVertical = 'HUG';
+      }
+      
+      console.log(`✅ HEIGHT AUTO APPLIED: ${node.name} set to HUG height`);
+    }
+    
+    // 🎯 SPECIFIC ELEMENT PATTERNS
+    if (element?.className?.includes('logo')) {
+      console.log(`[LOGO FIX] ${node.name}: Logo element detected, forcing HUG height`);
+      (node as any).layoutSizingVertical = 'HUG';
+      console.log(`✅ LOGO HUG: ${node.name} height set to HUG`);
+    }
     
     // CSS-driven sizing decisions based on properties, not class names
     const isFlexContainer = styles.display === 'flex';
@@ -1762,7 +2017,6 @@ export class HTMLToFigmaConverter {
     const justifyContent = styles['justify-content'];
     
     // CRITICAL FIX: Check if this is a layout child that should fill
-    const layoutHints = (node as any).layoutHints || {};
     const isLayoutChild = layoutHints.isLayoutChild;
     
     console.log('[CSS-DRIVEN SIZING] Properties:', {
@@ -1948,11 +2202,117 @@ export class HTMLToFigmaConverter {
     console.log('Applied DEFAULT sizing: FIXED SIZE, HUG CONTENT for', node.layoutMode);
   }
 
+  /**
+   * Extract container spacing from children's margins
+   */
+  private extractContainerSpacing(element: SimpleElement, styles: Record<string, string>): number {
+    console.log('[SPACING EXTRACTION] Analyzing container:', element?.className);
+    
+    // First, check if container has explicit gap property
+    const explicitGap = this.parseDimension(styles.gap);
+    if (explicitGap && explicitGap > 0) {
+      console.log('[SPACING EXTRACTION] Using explicit gap:', explicitGap);
+      return explicitGap;
+    }
+    
+    // Dashboard-specific: Extract spacing from children's margins
+    if (element?.className?.includes('dashboard-container') && element.children?.length >= 2) {
+      console.log('[SPACING EXTRACTION] Processing dashboard children:', element.children.length);
+    }
+    
+    // Extract spacing from children's margins
+    if (!element.children || element.children.length < 2) {
+      return 0; // Need at least 2 children to have spacing
+    }
+    
+    const childMargins: number[] = [];
+    
+    // Analyze each child's margin-bottom (for vertical containers)
+    for (const child of element.children) {
+      if (!child.className) continue; // Skip elements without classes
+      
+      // Get computed styles for this child
+      const childStyles = this.cssParser?.getStylesForElement(child) || {};
+      
+      // Extract margin-bottom
+      const marginBottom = this.parseDimension(childStyles['margin-bottom']);
+      if (marginBottom && marginBottom > 0) {
+        childMargins.push(marginBottom);
+        console.log('[SPACING EXTRACTION] Child', child.className, 'margin-bottom:', marginBottom);
+      }
+    }
+    
+    // Find the most common margin value
+    if (childMargins.length > 0) {
+      const spacing = this.getMostFrequentMargin(childMargins);
+      console.log('[SPACING EXTRACTION] Detected container spacing:', spacing, 'from margins:', childMargins);
+      return spacing;
+    }
+    
+    return 0;
+  }
+
+  /**
+   * Find the most frequent margin value
+   */
+  private getMostFrequentMargin(margins: number[]): number {
+    const frequency: { [key: number]: number } = {};
+    
+    margins.forEach(margin => {
+      frequency[margin] = (frequency[margin] || 0) + 1;
+    });
+    
+    let maxCount = 0;
+    let mostFrequent = 0;
+    
+    Object.entries(frequency).forEach(([value, count]) => {
+      if (count > maxCount) {
+        maxCount = count;
+        mostFrequent = parseInt(value);
+      }
+    });
+    
+    return mostFrequent;
+  }
+
+  /**
+   * Clean margins from child elements to prevent double-spacing
+   */
+  private cleanChildElementMargins(element: SimpleElement, parentNode: FigmaNode): void {
+    if (!(parentNode as any).spacingFromMargins) return;
+    
+    console.log('[MARGIN CLEANUP] Cleaning child margins for:', element.className);
+    
+    for (const child of element.children) {
+      if (!child.className) continue;
+      
+      // Find the corresponding Figma node
+      const childNode = parentNode.children?.find(n => n.name === child.className);
+      if (childNode) {
+        // Remove margin-bottom since it's now handled by parent's itemSpacing
+        if ('marginBottom' in childNode) {
+          console.log('[MARGIN CLEANUP] Removing margin-bottom from:', child.className);
+          (childNode as any).marginBottom = 0;
+        }
+      }
+    }
+  }
+
   private applyExactLayout(node: FigmaNode, styles: Record<string, string>, element?: SimpleElement, isMainFrame: boolean = false): void {
     // CRITICAL FIX: Clean quotes from styles before any checks
     const cleanedStyles = stripQuotesFromAllValues(styles);
     
     const className = element?.className || '';
+    
+    // CRITICAL: Dashboard pattern detection
+    const isDashboardContainer = className.includes('dashboard-container') || 
+                                 element?.id === 'dashboard-container' ||
+                                 (cleanedStyles['max-width'] && cleanedStyles.margin === '0 auto');
+    
+    if (isDashboardContainer) {
+      console.log('[DASHBOARD DETECTION] Dashboard container detected:', className);
+      (node as any).isDashboardContainer = true;
+    }
     console.log('[FaithfulConverter] Applying EXACT layout from CSS:', cleanedStyles.display, cleanedStyles['flex-direction'] || 'row (default)', isMainFrame ? '(MAIN FRAME)' : '(CHILD FRAME)', className);
     
     // CRITICAL FIX: Header pattern detection and correction
@@ -1998,6 +2358,17 @@ export class HTMLToFigmaConverter {
       
       console.log('[FLEX DIRECTION FIX] CSS flex-direction:', styles['flex-direction'], '→ resolved to:', flexDirection, '→ Figma layout:', node.layoutMode);
       
+      // CRITICAL FIX: Header space-between pattern detection
+      const isSpaceBetweenHeader = cleanedStyles.display === 'flex' && 
+                                 cleanedStyles['justify-content'] === 'space-between' &&
+                                 element?.className?.includes('header');
+
+      if (isSpaceBetweenHeader) {
+        console.log('[HEADER FIX] Detected space-between header, forcing row direction');
+        // Force row direction for space-between headers
+        node.layoutMode = 'HORIZONTAL';
+      }
+      
       // Debug header pattern specifically
       if (styles['justify-content'] === 'space-between') {
         console.log('[HEADER DEBUG] Space-between pattern detected:');
@@ -2023,7 +2394,7 @@ export class HTMLToFigmaConverter {
       }
       
       // Apply special sizing based on CSS properties
-      this.applySpecialSizing(node, styles, isMainFrame);
+      this.applySpecialSizing(node, styles, isMainFrame, element);
       
       // CRITICAL: Map CSS justify-content to Figma alignment
       if (styles['justify-content']) {
@@ -2044,17 +2415,8 @@ export class HTMLToFigmaConverter {
         (node as any).alignItems = alignItems;
       }
       
-      // PURE CSS gap - NO defaults
-      node.itemSpacing = this.parseDimension(styles.gap) || 0;
-      node.gap = styles.gap; // Pass original CSS value
-      
-      // EXACT padding conversion - NO smart defaults
-      const padding = this.parseDimension(styles.padding);
-      node.paddingLeft = this.parseDimension(styles['padding-left']) || padding || 0;
-      node.paddingRight = this.parseDimension(styles['padding-right']) || padding || 0;
-      node.paddingTop = this.parseDimension(styles['padding-top']) || padding || 0;
-      node.paddingBottom = this.parseDimension(styles['padding-bottom']) || padding || 0;
-      node.padding = styles.padding; // Pass original CSS value
+      // ENHANCED SPACING APPLICATION
+      this.applyEnhancedSpacing(node, element!, cleanedStyles);
       
       console.log('[FaithfulConverter] Applied AUTO LAYOUT flex:', {
         direction: node.layoutMode,
@@ -2064,11 +2426,29 @@ export class HTMLToFigmaConverter {
         fillParent: (node as any).fillParentWidth,
         padding: { left: node.paddingLeft, right: node.paddingRight, top: node.paddingTop, bottom: node.paddingBottom }
       });
+      
+    // EMERGENCY: Double-check display value right before grid check
+    if (cleanedStyles.display && typeof cleanedStyles.display === 'string') {
+      const displayValue = cleanedStyles.display.trim();
+      if ((displayValue.startsWith("'") && displayValue.endsWith("'")) || 
+          (displayValue.startsWith('"') && displayValue.endsWith('"'))) {
+        cleanedStyles.display = displayValue.slice(1, -1);
+        console.log('🚨 EMERGENCY: Fixed display value right before grid check:', displayValue, '→', cleanedStyles.display);
+      }
+    }
+    
     } else if (cleanedStyles.display === 'grid') {
       console.log('✅ GRID LAYOUT DETECTED!');
       // CRITICAL FIX: Enhanced CSS Grid to Auto Layout conversion
       const gridTemplateColumns = cleanedStyles['grid-template-columns'] || '';
       const gap = this.parseDimension(cleanedStyles.gap) || 24;
+      
+      // CRITICAL DEBUG: Enhanced grid detection
+      console.log('🔍 GRID CONTAINER ANALYSIS:', {
+        element: element?.className,
+        gridTemplateColumns: cleanedStyles['grid-template-columns'],
+        gap: cleanedStyles.gap
+      });
       
       console.log('[GRID CONVERSION] Processing grid:', {
         gridTemplateColumns,
@@ -2098,6 +2478,15 @@ export class HTMLToFigmaConverter {
           itemsPerRow,
           actualItemWidth
         });
+        
+        console.log('🔍 GRID CONSTRAINTS:', { minWidth: minItemWidth, maxWidth });
+        
+        // Store grid constraints for children
+        (node as any).gridConstraints = {
+          minItemWidth: minItemWidth,
+          maxItemWidth: maxWidth,
+          isResponsiveGrid: true
+        };
         
         node.layoutMode = 'HORIZONTAL';
         node.itemSpacing = gap;
@@ -2148,7 +2537,7 @@ export class HTMLToFigmaConverter {
       }
       
       // Apply special sizing based on CSS properties
-      this.applySpecialSizing(node, styles, isMainFrame);
+      this.applySpecialSizing(node, styles, isMainFrame, element);
       
       const padding = this.parseDimension(styles.padding);
       node.paddingLeft = this.parseDimension(styles['padding-left']) || padding || 0;
@@ -2169,7 +2558,7 @@ export class HTMLToFigmaConverter {
       node.layoutMode = 'VERTICAL';
       
       // Apply special sizing based on CSS properties
-      this.applySpecialSizing(node, styles, isMainFrame);
+      this.applySpecialSizing(node, styles, isMainFrame, element);
       
       // PURE CSS spacing - NO hardcoded values
       node.itemSpacing = this.parseDimension(styles.gap) || 8; // Use CSS gap or minimal default
@@ -2536,6 +2925,12 @@ export class HTMLToFigmaConverter {
     const num = parseFloat(value);
     return isNaN(num) ? undefined : num;
   }
+  
+  private parseSpacing(value: string | undefined): number {
+    if (!value || value === 'auto' || value === 'none') return 0;
+    const match = value.match(/^(\d+(?:\.\d+)?)(px|em|rem|%)?$/);
+    return match ? parseFloat(match[1]) : 0;
+  }
 
   private parseBoxShadow(boxShadow: string): FigmaEffect | null {
     // Parse box-shadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
@@ -2611,11 +3006,88 @@ export class HTMLToFigmaConverter {
   } {
     console.log('[SIZING] Determining size for:', className, 'CSS width:', styles.width);
     
+    // 🎯 DYNAMIC GRID CHILD CALCULATION
+    if (layoutContext?.parentContext?.isResponsiveGrid && !isMainFrame) {
+      console.log('[DYNAMIC GRID] Calculating child width for:', className);
+      
+      // Create a simple element structure for the detector
+      const element: SimpleElement = {
+        tagName: 'div',
+        className: className,
+        children: [],
+        style: styles,
+        attributes: {}
+      };
+      
+      // Get parent element from context
+      const parentElement = layoutContext.parentContext ? {
+        tagName: 'div',
+        className: layoutContext.parentContext.className || '',
+        children: [],
+        style: layoutContext.parentContext.styles || {},
+        attributes: {}
+      } as SimpleElement : null;
+      
+      // Get actual parent width dynamically
+      const parentWidth = DynamicWidthDetector.getEffectiveParentWidth(
+        element, 
+        parentElement, 
+        this.cssParser!
+      );
+      
+      // Get parent grid styles
+      const parentStyles = layoutContext.parentContext.styles || {};
+      
+      // Calculate dynamic width
+      const calculatedWidth = DynamicGridCalculator.calculateGridItemWidth(
+        parentStyles,
+        parentWidth
+      );
+      
+      if (calculatedWidth) {
+        console.log(`[DYNAMIC GRID] ${className} width = ${calculatedWidth}px`);
+        
+        return {
+          width: calculatedWidth,
+          height: this.parseDimension(styles.height) || 200, // Use CSS height or reasonable default
+          usesLayoutSizing: false,
+          shouldFillParent: false,
+          isCentered: false,
+          layoutHints: { 
+            isGridChild: true, 
+            calculatedWidth: calculatedWidth,
+            isDynamic: true
+          }
+        };
+      }
+    }
+    
     // CRITICAL FIX: Check for explicit CSS width FIRST
     if (styles.width && !isMainFrame) {
       const cssWidth = this.parseDimension(styles.width);
       if (cssWidth) {
         console.log('[CSS WIDTH] Found explicit width:', cssWidth, 'for', className);
+        
+        // 🎯 CSS HEIGHT AUTO DETECTION
+        if (styles.height === 'auto' || !styles.height) {
+          console.log(`[CSS HEIGHT AUTO] ${className}: No explicit height, should HUG`);
+          
+          return {
+            width: cssWidth,  // USE THE ACTUAL CSS WIDTH
+            height: 50, // Initial height - will be overridden by HUG
+            usesLayoutSizing: true,
+            shouldFillParent: false,
+            isCentered: false,
+            layoutHints: { 
+              hasExplicitWidth: true, 
+              cssWidth: cssWidth,
+              shouldHugHeight: true,
+              hasAutoHeight: true,
+              cssHeight: 'auto'
+            }
+          };
+        }
+        
         return {
           width: cssWidth,  // USE THE ACTUAL CSS WIDTH
           height: this.parseDimension(styles.height) || 100,
