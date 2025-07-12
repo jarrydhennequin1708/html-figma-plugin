@@ -768,7 +768,11 @@ class SimpleHTMLParser {
       const colonIndex = decl.indexOf(':');
       if (colonIndex > 0) {
         const prop = decl.substring(0, colonIndex).trim();
-        const value = decl.substring(colonIndex + 1).trim();
+        let value = decl.substring(colonIndex + 1).trim();
+        
+        // CRITICAL FIX: Remove quotes from inline style values
+        value = value.replace(/^['"]|['"]$/g, '');
+        
         if (prop && value) {
           styles[prop] = value;
         }
@@ -1010,7 +1014,11 @@ class SimpleCSSParser {
         const colonIndex = decl.indexOf(':');
         if (colonIndex > 0) {
           const prop = decl.substring(0, colonIndex).trim();
-          const value = decl.substring(colonIndex + 1).trim();
+          let value = decl.substring(colonIndex + 1).trim();
+          
+          // CRITICAL FIX: Remove quotes from CSS values
+          value = value.replace(/^['"]|['"]$/g, '');
+          
           if (prop && value) {
             declarations[prop] = value;
             console.log(`[CSS PARSER]   ${prop}: ${value}`);

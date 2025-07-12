@@ -76,23 +76,7 @@ figma.ui.onmessage = async (msg) => {
         }
       }
       
-      // CRITICAL: Post-process to fix width issues
-      console.log('[POST-PROCESS] Fixing width issues...');
-      fixWidthIssues(container);
-      
-      // Additional delayed fix to catch any remaining issues
-      setTimeout(() => {
-        console.log('[DELAYED FIX] Running secondary width fix...');
-        fixWidthIssues(container);
-        
-        // Force a layout update
-        if ('layoutMode' in container && container.layoutMode !== 'NONE') {
-          const temp = container.layoutMode;
-          container.layoutMode = 'NONE';
-          container.layoutMode = temp;
-          console.log('[DELAYED FIX] Forced layout refresh');
-        }
-      }, 100);
+      // Post-processing no longer needed - CSS parser is fixed!
       
       // Select and zoom
       figma.currentPage.selection = [container];
