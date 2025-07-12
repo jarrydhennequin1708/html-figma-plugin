@@ -428,14 +428,35 @@ interface FigmaNode {
   paddingTop?: number;
   paddingBottom?: number;
   itemSpacing?: number;
+  gap?: string; // CSS gap value
+  padding?: string; // CSS padding shorthand
   children?: FigmaNode[];
   characters?: string;
   fontSize?: number;
   fontName?: { family: string; style: string };
+  fontWeight?: string | number; // CSS font-weight
+  fontFamily?: string; // CSS font-family
+  color?: string; // Text color
+  textAlign?: string; // CSS text-align
   textAlignHorizontal?: 'LEFT' | 'CENTER' | 'RIGHT' | 'JUSTIFIED';
   textAlignVertical?: 'TOP' | 'CENTER' | 'BOTTOM';
-  lineHeight?: { value: number; unit: 'PIXELS' | 'PERCENT' };
-  letterSpacing?: { value: number; unit: 'PIXELS' | 'PERCENT' };
+  lineHeight?: { value: number; unit: 'PIXELS' | 'PERCENT' } | string;
+  letterSpacing?: { value: number; unit: 'PIXELS' | 'PERCENT' } | string;
+  backgroundColor?: string; // CSS background-color
+  borderRadius?: string | number; // CSS border-radius
+  justifyContent?: string; // CSS justify-content
+  alignItems?: string; // CSS align-items
+  maxWidth?: string; // CSS max-width
+  layoutSizingHorizontal?: 'FIXED' | 'HUG' | 'FILL';
+  layoutSizingVertical?: 'FIXED' | 'HUG' | 'FILL';
+  shouldFillParent?: boolean;
+  cornerRadius?: number;
+  strokeWeight?: number;
+  opacity?: number;
+  layoutWrap?: 'WRAP' | 'NO_WRAP';
+  counterAxisSpacing?: number;
+  primaryAxisAlignItems?: string;
+  counterAxisAlignItems?: string;
 }
 
 interface FigmaFill {
@@ -1364,7 +1385,14 @@ export class HTMLToFigmaConverter {
         width: width,
         height: height,
         characters: this.decodeHTMLEntities(element.textContent),
-        children: []
+        children: [],
+        // Pass CSS properties for text
+        fontWeight: styles['font-weight'],
+        fontFamily: styles['font-family'],
+        color: styles.color,
+        textAlign: styles['text-align'],
+        lineHeight: styles['line-height'],
+        letterSpacing: styles['letter-spacing']
       };
       
       // Apply text styles directly
@@ -1381,7 +1409,15 @@ export class HTMLToFigmaConverter {
       y: 0,
       width: width,
       height: height,
-      children: []
+      children: [],
+      // Pass CSS properties for enhanced handling
+      backgroundColor: styles['background-color'],
+      borderRadius: styles['border-radius'],
+      gap: styles.gap,
+      padding: styles.padding,
+      maxWidth: styles['max-width'],
+      justifyContent: styles['justify-content'],
+      alignItems: styles['align-items']
     };
     
     // CSS-DRIVEN: For Auto Layout containers, mark that height should be ignored
@@ -1810,6 +1846,7 @@ export class HTMLToFigmaConverter {
       
       // PURE CSS gap - NO defaults
       node.itemSpacing = this.parseDimension(styles.gap) || 0;
+      node.gap = styles.gap; // Pass original CSS value
       
       // EXACT padding conversion - NO smart defaults
       const padding = this.parseDimension(styles.padding);
@@ -1817,6 +1854,7 @@ export class HTMLToFigmaConverter {
       node.paddingRight = this.parseDimension(styles['padding-right']) || padding || 0;
       node.paddingTop = this.parseDimension(styles['padding-top']) || padding || 0;
       node.paddingBottom = this.parseDimension(styles['padding-bottom']) || padding || 0;
+      node.padding = styles.padding; // Pass original CSS value
       
       console.log('[FaithfulConverter] Applied AUTO LAYOUT flex:', {
         direction: node.layoutMode,
@@ -1934,6 +1972,7 @@ export class HTMLToFigmaConverter {
       
       // PURE CSS spacing - NO hardcoded values
       node.itemSpacing = this.parseDimension(styles.gap) || 8; // Use CSS gap or minimal default
+      node.gap = styles.gap; // Pass original CSS value
       
       // Apply padding if specified
       const padding = this.parseDimension(styles.padding);
@@ -1941,6 +1980,7 @@ export class HTMLToFigmaConverter {
       node.paddingRight = this.parseDimension(styles['padding-right']) || padding || 0;
       node.paddingTop = this.parseDimension(styles['padding-top']) || padding || 0;
       node.paddingBottom = this.parseDimension(styles['padding-bottom']) || padding || 0;
+      node.padding = styles.padding; // Pass original CSS value
       
       console.log('[FaithfulConverter] Applied AUTO LAYOUT for text stacking:', {
         primarySizing: node.primaryAxisSizingMode,
@@ -2166,6 +2206,7 @@ export class HTMLToFigmaConverter {
     
     // PURE CSS FONT WEIGHT - NO HARDCODING
     const cssFontWeight = styles['font-weight'];
+    node.fontWeight = cssFontWeight; // Pass original CSS value
     let fontStyle = 'Regular';
     if (cssFontWeight === 'bold' || parseInt(cssFontWeight) >= 700) {
       fontStyle = 'Bold';
@@ -2183,6 +2224,7 @@ export class HTMLToFigmaConverter {
     // PURE CSS FONT FAMILY - DEFAULT TO ARIAL
     let family = 'Arial'; // Always default to Arial as requested
     const cssFontFamily = styles['font-family'];
+    node.fontFamily = cssFontFamily; // Pass original CSS value
     
     if (cssFontFamily) {
       const fonts = cssFontFamily.split(',').map(f => f.trim().replace(/['"]/g, ''));

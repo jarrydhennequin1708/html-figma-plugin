@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Spacing and Font Weight Test</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #f5f5f5;
+    }
+    
+    /* Test Case 1: Container with max-width and auto margins */
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      background-color: #ffffff;
+    }
+    
+    /* Test Case 2: Grid with specific gap */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px; /* Should be 24px, not 8px */
+      margin-top: 32px;
+    }
+    
+    /* Test Case 3: Card with padding */
+    .metric-card {
+      background-color: #1a1a1a;
+      border: 1px solid #333333;
+      border-radius: 12px;
+      padding: 24px; /* Should be 24px on all sides */
+      color: #ffffff;
+    }
+    
+    /* Test Case 4: Different font weights */
+    .metric-value {
+      font-size: 48px;
+      font-weight: 800; /* Should be Extra Bold, not Light */
+      color: #00ff00;
+      margin: 0 0 8px 0;
+    }
+    
+    .metric-label {
+      font-size: 14px;
+      font-weight: 500; /* Should be Medium */
+      color: #888888;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    /* Test Case 5: Flexbox with gap and padding */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 32px; /* Different horizontal/vertical padding */
+      background-color: #111111;
+      border-bottom: 1px solid #333333;
+      gap: 16px; /* Flexbox gap */
+    }
+    
+    .header h1 {
+      color: #ffffff;
+      font-size: 32px;
+      font-weight: 700; /* Bold */
+      margin: 0;
+    }
+    
+    .header-nav {
+      display: flex;
+      gap: 24px; /* Another gap test */
+    }
+    
+    .nav-item {
+      color: #cccccc;
+      font-weight: 400; /* Regular */
+      font-size: 16px;
+    }
+    
+    /* Test Case 6: Various font weights */
+    .font-weight-test {
+      margin-top: 32px;
+      padding: 24px;
+      background-color: #f0f0f0;
+      border-radius: 8px;
+    }
+    
+    .weight-100 { font-weight: 100; } /* Thin */
+    .weight-300 { font-weight: 300; } /* Light */
+    .weight-400 { font-weight: 400; } /* Regular */
+    .weight-500 { font-weight: 500; } /* Medium */
+    .weight-600 { font-weight: 600; } /* Semi Bold */
+    .weight-700 { font-weight: 700; } /* Bold */
+    .weight-800 { font-weight: 800; } /* Extra Bold */
+    .weight-900 { font-weight: 900; } /* Black */
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>Dashboard</h1>
+    <nav class="header-nav">
+      <span class="nav-item">Home</span>
+      <span class="nav-item">Analytics</span>
+      <span class="nav-item">Settings</span>
+    </nav>
+  </div>
+  
+  <div class="container">
+    <h2 style="font-size: 24px; font-weight: 600; margin: 0 0 16px 0;">Metrics Overview</h2>
+    
+    <div class="metrics-grid">
+      <div class="metric-card">
+        <div class="metric-value">$12,345</div>
+        <div class="metric-label">Revenue</div>
+      </div>
+      
+      <div class="metric-card">
+        <div class="metric-value">1,234</div>
+        <div class="metric-label">Orders</div>
+      </div>
+      
+      <div class="metric-card">
+        <div class="metric-value">89.5%</div>
+        <div class="metric-label">Conversion Rate</div>
+      </div>
+    </div>
+    
+    <div class="font-weight-test">
+      <h3 style="margin: 0 0 16px 0;">Font Weight Test</h3>
+      <p class="weight-100">100 - Thin</p>
+      <p class="weight-300">300 - Light</p>
+      <p class="weight-400">400 - Regular</p>
+      <p class="weight-500">500 - Medium</p>
+      <p class="weight-600">600 - Semi Bold</p>
+      <p class="weight-700">700 - Bold</p>
+      <p class="weight-800">800 - Extra Bold</p>
+      <p class="weight-900">900 - Black</p>
+    </div>
+  </div>
+</body>
+</html>
