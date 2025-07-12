@@ -154,8 +154,7 @@ async function createFrameNodeWithFixes(element: any, parent: FrameNode, propert
   const frame = figma.createFrame();
   frame.name = element.name || 'Frame';
   
-  // Set minimal initial size - will be adjusted by Auto Layout
-  frame.resize(1, 1);
+  // Don't set any initial size - let Auto Layout handle everything
   
   // STEP 1: Add to parent immediately (enables all properties)
   parent.appendChild(frame);

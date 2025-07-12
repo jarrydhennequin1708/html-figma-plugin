@@ -15,73 +15,67 @@ export class SizingStrategy {
       context
     });
     
-    // RULE 1: Vertical sizing - Always HUG unless explicit height
-    if (properties.height && properties.height > 0) {
-      // Only resize height if explicitly set
+    const width = properties.width;
+    const maxWidth = properties.maxWidth;
+    const height = properties.height;
+    
+    // VERTICAL SIZING - Always HUG unless explicit height
+    if (height && height > 0) {
+      // Explicit height - use FIXED
       if ('layoutSizingVertical' in node) {
         node.layoutSizingVertical = 'FIXED';
-        node.resize(node.width, properties.height);
       }
     } else {
       // Default: HUG content vertically
       if ('layoutSizingVertical' in node) {
         node.layoutSizingVertical = 'HUG';
       }
-      // Don't set any height - let Auto Layout determine it
     }
     
-    // RULE 2: Horizontal sizing - Smart logic based on context
-    if (properties.width && properties.width > 0) {
-      // Explicit width - use FIXED
-      if ('layoutSizingHorizontal' in node) {
-        node.layoutSizingHorizontal = 'FIXED';
-        // Only resize if we have both dimensions
-        if (properties.height && properties.height > 0) {
-          node.resize(properties.width, properties.height);
-        } else {
-          // Only set width, let Auto Layout handle height
-          const currentHeight = node.height > 1 ? node.height : 1;
-          node.resize(properties.width, currentHeight);
-        }
-      }
-    } else if (properties.maxWidth && properties.maxWidth > 0) {
+    // HORIZONTAL SIZING
+    if (maxWidth && maxWidth > 0) {
       // Max-width containers (like dashboard-container)
       if ('layoutSizingHorizontal' in node) {
         node.layoutSizingHorizontal = 'FIXED';
-        // Only resize if we have both dimensions
-        if (properties.height && properties.height > 0) {
-          node.resize(properties.maxWidth, properties.height);
-        } else {
-          // Only set width, let Auto Layout handle height
-          const currentHeight = node.height > 1 ? node.height : 1;
-          node.resize(properties.maxWidth, currentHeight);
-        }
       }
       
       // Center if margin: 0 auto
       if (properties.margin === '0 auto' && 'layoutAlign' in node) {
         node.layoutAlign = 'CENTER';
       }
-    } else if (properties.shouldFillParent || context.isChild) {
-      // Elements marked to fill parent OR child elements should FILL
+    } else if (width && width > 0) {
+      // Explicit width - use FIXED
       if ('layoutSizingHorizontal' in node) {
-        node.layoutSizingHorizontal = 'FILL';
-      }
-      
-      // Special case: Grid children with min-width
-      if (context.parentDisplay === 'grid' && properties.minWidth) {
-        // Grid items with min-width should respect it
-        node.resize(properties.minWidth, node.height);
-        if ('layoutSizingHorizontal' in node) {
-          node.layoutSizingHorizontal = 'FIXED';
-        }
+        node.layoutSizingHorizontal = 'FIXED';
       }
     } else {
-      // Root elements without explicit width should HUG
-      if ('layoutSizingHorizontal' in node) {
-        node.layoutSizingHorizontal = 'HUG';
+      // NO explicit width - decide between FILL and HUG
+      if (this.shouldFillWidth(properties, context)) {
+        if ('layoutSizingHorizontal' in node) {
+          node.layoutSizingHorizontal = 'FILL';
+        }
+      } else {
+        if ('layoutSizingHorizontal' in node) {
+          node.layoutSizingHorizontal = 'HUG';
+        }
       }
     }
+    
+    // Only resize if we have explicit dimensions
+    if ((width && width > 0) || (maxWidth && maxWidth > 0)) {
+      const finalWidth = maxWidth || width;
+      if (height && height > 0) {
+        // Both dimensions specified
+        node.resize(finalWidth, height);
+      } else {
+        // Only width specified - let height be determined by content
+        node.resize(finalWidth, node.height || 1);
+      }
+    } else if (height && height > 0) {
+      // Only height specified - let width be determined by Auto Layout
+      node.resize(node.width || 1, height);
+    }
+    // If no dimensions specified, don't resize - let Auto Layout handle everything
     
     console.log('[SizingStrategy] Applied sizing:', {
       width: node.width,
@@ -89,6 +83,22 @@ export class SizingStrategy {
       horizontalSizing: (node as any).layoutSizingHorizontal,
       verticalSizing: (node as any).layoutSizingVertical
     });
+  }
+  
+  private static shouldFillWidth(properties: any, context: any): boolean {
+    // Already marked to fill
+    if (properties.shouldFillParent) return true;
+    
+    // Container elements (flex/grid) should FILL
+    if (properties.display === 'flex' || properties.display === 'grid') return true;
+    
+    // Child elements in Auto Layout containers should usually FILL
+    if (context.isChild) return true;
+    
+    // Text elements should HUG
+    if (properties.isTextElement) return false;
+    
+    return false; // Default to HUG for unknown elements
   }
   
   static applyLayoutProperties(node: FrameNode, properties: any): void {

@@ -150,8 +150,8 @@ class SizingStrategyResolver {
     if (shouldFillWidth && !context.hasIntrinsicSize) {
       console.log('[SIZING STRATEGY] Child of layout container - should FILL width');
       return {
-        width: 1, // Minimal width - will be overridden by FILL
-        height: 0, // No height - will be handled by HUG
+        width: 0, // No width - FILL will handle it
+        height: 0, // No height - HUG will handle it
         usesLayoutSizing: true,
         shouldFillParent: true,
         isCentered: false,
@@ -204,8 +204,8 @@ class SizingStrategyResolver {
     // 3. Flex items with grow should fill
     if (context.isFlexItem) {
       return {
-        width: 1, // Minimal width - will be overridden by FILL
-        height: 0, // No height - let Auto Layout HUG
+        width: 0, // No width - FILL will handle it
+        height: 0, // No height - HUG will handle it
         usesLayoutSizing: true,
         shouldFillParent: true,
         isCentered: false,
@@ -253,8 +253,8 @@ class SizingStrategyResolver {
     if (isFlexChild && !styles.width && !styles.height) {
       console.log('[FLEX CHILD] Element without dimensions inside flex container - should FILL');
       return {
-        width: 1,   // Minimal width - will be overridden by FILL
-        height: 0,  // No height - will be handled by HUG
+        width: 0,   // No width - FILL will handle it
+        height: 0,  // No height - HUG will handle it
         usesLayoutSizing: true,
         shouldFillParent: true,
         isCentered: false,
@@ -287,7 +287,7 @@ class SizingStrategyResolver {
     if (isContainerSection) {
       console.log('[CONTAINER SECTION] Detected container section, applying FILL width + HUG height');
       return {
-        width: 1,     // Minimal width - will be overridden by FILL
+        width: 0,     // No width - FILL will handle it
         height: 0,    // No height - will be handled by HUG
         usesLayoutSizing: true,
         shouldFillParent: true,
@@ -305,7 +305,7 @@ class SizingStrategyResolver {
       // CRITICAL FIX: Layout containers that are children should fill parent
       const isChild = !!context.parentContext;
       return {
-        width: 1, // Minimal width - will be overridden by FILL if child
+        width: 0, // No width - FILL will handle it
         height: 0, // No height - let Auto Layout HUG
         usesLayoutSizing: true,
         shouldFillParent: isChild, // Fill parent if it's a child
