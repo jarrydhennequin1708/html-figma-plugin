@@ -61,21 +61,13 @@ export class SizingStrategy {
       }
     }
     
-    // Only resize if we have explicit dimensions
-    if ((width && width > 0) || (maxWidth && maxWidth > 0)) {
-      const finalWidth = maxWidth || width;
-      if (height && height > 0) {
-        // Both dimensions specified
-        node.resize(finalWidth, height);
-      } else {
-        // Only width specified - let height be determined by content
-        node.resize(finalWidth, node.height || 1);
-      }
-    } else if (height && height > 0) {
-      // Only height specified - let width be determined by Auto Layout
-      node.resize(node.width || 1, height);
+    // Only resize if we have BOTH explicit dimensions
+    if ((width && width > 0) && (height && height > 0)) {
+      node.resize(width, height);
+    } else if ((maxWidth && maxWidth > 0) && (height && height > 0)) {
+      node.resize(maxWidth, height);
     }
-    // If no dimensions specified, don't resize - let Auto Layout handle everything
+    // NO other resize calls - let Auto Layout handle everything else
     
     console.log('[SizingStrategy] Applied sizing:', {
       width: node.width,
