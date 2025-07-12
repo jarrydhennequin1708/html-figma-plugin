@@ -1018,11 +1018,22 @@ class SimpleCSSParser {
           
           // CRITICAL FIX: Remove quotes from CSS values
           const originalValue = value;
+          
+          // More aggressive quote removal - handle nested quotes
+          value = value.trim();
+          // Remove outer quotes
+          if ((value.startsWith("'") && value.endsWith("'")) || 
+              (value.startsWith('"') && value.endsWith('"'))) {
+            value = value.slice(1, -1);
+          }
+          // Remove any remaining quotes
           value = value.replace(/^['"]|['"]$/g, '');
           
           // DEBUG: Log if quotes were removed
           if (originalValue !== value) {
             console.warn(`[CSS PARSER] Removed quotes from ${prop}: "${originalValue}" → "${value}"`);
+          } else if (value.includes("'") || value.includes('"')) {
+            console.error(`[CSS PARSER] WARNING: ${prop} still contains quotes: "${value}"`);
           }
           
           if (prop && value) {
@@ -1240,6 +1251,36 @@ export class HTMLToFigmaConverter {
 
   constructor(options: ConversionOptions) {
     this.options = options;
+    
+    // TEST: Verify quote removal works
+    this.testQuoteRemoval();
+  }
+  
+  private testQuoteRemoval(): void {
+    console.log('🧪 === TESTING QUOTE REMOVAL ===');
+    
+    // Test the parser with quoted CSS
+    const testCSS = `.test { display: 'grid'; gap: '24px'; }`;
+    const parser = new SimpleCSSParser(testCSS);
+    
+    if (parser.rules.length > 0) {
+      const rule = parser.rules[0];
+      const display = rule.declarations.display;
+      const gap = rule.declarations.gap;
+      
+      console.log('Test results:');
+      console.log(`  display value: "${display}"`);
+      console.log(`  display === 'grid': ${display === 'grid'}`);
+      console.log(`  display === "'grid'": ${display === "'grid'"}`);
+      console.log(`  gap value: "${gap}"`);
+      console.log(`  gap === '24px': ${gap === '24px'}`);
+      
+      if (display !== 'grid') {
+        console.error('❌ QUOTE REMOVAL FAILED! Display still has quotes!');
+      } else {
+        console.log('✅ Quote removal working correctly!');
+      }
+    }
   }
 
   async convert(html: string, css: string = ''): Promise<FigmaNode[]> {
@@ -1261,11 +1302,25 @@ export class HTMLToFigmaConverter {
     CSSSourceDebugger.debugCSSParsingOrder(css);
     
     // CRITICAL FIX: Pre-process CSS to remove any quotes that might be in the input
-    const cleanedCSS = css.replace(/:\s*'([^']*)'/g, ': $1').replace(/:\s*"([^"]*)"/g, ': $1');
+    // This is a more aggressive approach that handles all quote patterns
+    let cleanedCSS = css;
+    
+    // Remove quotes from property values - handle all patterns
+    cleanedCSS = cleanedCSS.replace(/:\s*'([^']*)'/g, ': $1');  // Single quotes
+    cleanedCSS = cleanedCSS.replace(/:\s*"([^"]*)"/g, ': $1');  // Double quotes
+    cleanedCSS = cleanedCSS.replace(/:\s*'([^']*)'(?=[;,\s}])/g, ': $1'); // Single quotes before delimiters
+    cleanedCSS = cleanedCSS.replace(/:\s*"([^"]*)"(?=[;,\s}])/g, ': $1'); // Double quotes before delimiters
+    
     if (cleanedCSS !== css) {
       console.warn('[CSS FIX] Removed quotes from CSS input');
       console.log('[CSS FIX] Example before:', css.match(/:\s*['"][^'"]+['"]/)?.[0]);
       console.log('[CSS FIX] Example after:', cleanedCSS.match(/:\s*[^;]+/)?.[0]);
+      
+      // Show specific fixes
+      const displayMatch = css.match(/display:\s*['"]([^'"]+)['"]/);
+      if (displayMatch) {
+        console.log(`[CSS FIX] Fixed display: "${displayMatch[0]}" → "display: ${displayMatch[1]}"`);
+      }
     }
     
     // Parse CSS 
