@@ -260,13 +260,35 @@ async function createFrameNodeWithFixes(element: any, parent: FrameNode, propert
   
   // STEP 5: Apply intelligent sizing strategy
   const isChild = parent.name !== 'Converted HTML';
-  SizingStrategy.applySizing(frame, properties, {
+  
+  // Check if element is marked to fill parent
+  const shouldFillParent = element.shouldFillParent || 
+                          element.fillParentWidth || 
+                          (isChild && !properties.width && !properties.maxWidth) ||
+                          // Common container patterns that should fill
+                          (isChild && element.name && (
+                            element.name.includes('header') ||
+                            element.name.includes('grid') ||
+                            element.name.includes('section') ||
+                            element.name.includes('container') ||
+                            element.name.includes('wrapper')
+                          ));
+  
+  SizingStrategy.applySizing(frame, {
+    ...properties,
+    shouldFillParent
+  }, {
     isChild,
     parentDisplay: parent.layoutMode !== 'NONE' ? 'flex' : 'block',
     parentWidth: parent.width
   });
   
-  console.log('[ORDER] Step 5: Applied sizing strategy');
+  console.log('[ORDER] Step 5: Applied sizing strategy', {
+    name: frame.name,
+    shouldFillParent,
+    width: frame.width,
+    horizontalSizing: (frame as any).layoutSizingHorizontal
+  });
   
   // STEP 6: Process children
   if (element.children && element.children.length > 0) {

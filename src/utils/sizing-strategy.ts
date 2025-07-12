@@ -62,13 +62,13 @@ export class SizingStrategy {
       if (properties.margin === '0 auto' && 'layoutAlign' in node) {
         node.layoutAlign = 'CENTER';
       }
-    } else if (context.isChild) {
-      // Child elements in layout containers should FILL by default
+    } else if (properties.shouldFillParent || context.isChild) {
+      // Elements marked to fill parent OR child elements should FILL
       if ('layoutSizingHorizontal' in node) {
         node.layoutSizingHorizontal = 'FILL';
       }
       
-      // Special case: Grid children
+      // Special case: Grid children with min-width
       if (context.parentDisplay === 'grid' && properties.minWidth) {
         // Grid items with min-width should respect it
         node.resize(properties.minWidth, node.height);
