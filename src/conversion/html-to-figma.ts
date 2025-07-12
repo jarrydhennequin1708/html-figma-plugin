@@ -1243,6 +1243,28 @@ class SimpleCSSParser {
   }
 }
 
+// Helper function to strip quotes from all CSS values
+function stripQuotesFromAllValues(obj: any): any {
+  if (!obj || typeof obj !== 'object') return obj;
+  
+  const result: any = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === 'string' && value.length >= 2) {
+      // Remove surrounding quotes
+      if ((value.startsWith("'") && value.endsWith("'")) || 
+          (value.startsWith('"') && value.endsWith('"'))) {
+        result[key] = value.slice(1, -1);
+        console.log(`🧹 FIXED: ${key} = "${value}" → "${result[key]}"`);
+      } else {
+        result[key] = value;
+      }
+    } else {
+      result[key] = value;
+    }
+  }
+  return result;
+}
+
 // FIXED Main Converter - Faithful CSS conversion (NO SMART DEFAULTS!)
 export class HTMLToFigmaConverter {
   private options: ConversionOptions;
@@ -1553,12 +1575,19 @@ export class HTMLToFigmaConverter {
       alignItems: styles['align-items']
     };
     
+    // CRITICAL FIX: Clean quotes from styles before layout detection
+    const cleanStyles = stripQuotesFromAllValues(styles);
+    console.log('[QUOTE FIX] Cleaned styles for layout detection');
+    if (cleanStyles.display !== styles.display) {
+      console.log(`[QUOTE FIX] Display changed from "${styles.display}" to "${cleanStyles.display}"`);
+    }
+    
     // CSS-DRIVEN: For Auto Layout containers, mark that height should be ignored
-    const willUseAutoLayout = styles.display === 'flex' || styles.display === 'grid';
+    const willUseAutoLayout = cleanStyles.display === 'flex' || cleanStyles.display === 'grid';
     
     if (willUseAutoLayout) {
       (node as any).ignoreInitialHeight = true;
-      console.log('[AUTO LAYOUT] Marked container to ignore initial height, display:', styles.display);
+      console.log('[AUTO LAYOUT] Marked container to ignore initial height, display:', cleanStyles.display);
     }
     
     // Pass sizing mode information to layout application
@@ -1886,34 +1915,37 @@ export class HTMLToFigmaConverter {
   }
 
   private applyExactLayout(node: FigmaNode, styles: Record<string, string>, element?: SimpleElement, isMainFrame: boolean = false): void {
+    // CRITICAL FIX: Clean quotes from styles before any checks
+    const cleanedStyles = stripQuotesFromAllValues(styles);
+    
     const className = element?.className || '';
-    console.log('[FaithfulConverter] Applying EXACT layout from CSS:', styles.display, styles['flex-direction'] || 'row (default)', isMainFrame ? '(MAIN FRAME)' : '(CHILD FRAME)', className);
+    console.log('[FaithfulConverter] Applying EXACT layout from CSS:', cleanedStyles.display, cleanedStyles['flex-direction'] || 'row (default)', isMainFrame ? '(MAIN FRAME)' : '(CHILD FRAME)', className);
     
     // CRITICAL FIX: Header pattern detection and correction
-    const isHeaderPattern = styles.display === 'flex' && 
-                           styles['justify-content'] === 'space-between' &&
-                           !styles['flex-direction']; // Default is 'row'
+    const isHeaderPattern = cleanedStyles.display === 'flex' && 
+                           cleanedStyles['justify-content'] === 'space-between' &&
+                           !cleanedStyles['flex-direction']; // Default is 'row'
     
     if (isHeaderPattern) {
       // Force correct flex direction for space-between headers
-      styles['flex-direction'] = 'row';
+      cleanedStyles['flex-direction'] = 'row';
       console.log('[HEADER FIX] Detected space-between header pattern, forcing flex-direction: row');
     }
     
     // Enhanced layout pattern detection
-    if (styles.display === 'flex' && styles['justify-content'] === 'space-between') {
+    if (cleanedStyles.display === 'flex' && cleanedStyles['justify-content'] === 'space-between') {
       console.log('🔍 FLEX SPACE-BETWEEN DETECTED - Header-like layout');
       console.log('Flex layout styles:', {
-        display: styles.display,
-        alignItems: styles['align-items'],
-        justifyContent: styles['justify-content'],
-        flexDirection: styles['flex-direction'], // Now guaranteed to be 'row'
-        borderBottom: styles['border-bottom']
+        display: cleanedStyles.display,
+        alignItems: cleanedStyles['align-items'],
+        justifyContent: cleanedStyles['justify-content'],
+        flexDirection: cleanedStyles['flex-direction'], // Now guaranteed to be 'row'
+        borderBottom: cleanedStyles['border-bottom']
       });
     }
     
     // CSS-DRIVEN DEBUG: Identify two-column grid patterns
-    if (styles.display === 'grid' && (styles['grid-template-columns'] === '1fr 1fr' || styles['grid-template-columns']?.includes('1fr 1fr'))) {
+    if (cleanedStyles.display === 'grid' && (cleanedStyles['grid-template-columns'] === '1fr 1fr' || cleanedStyles['grid-template-columns']?.includes('1fr 1fr'))) {
       console.log('🔍 TWO-COLUMN GRID DETECTED - Comparison-like layout');
       console.log('Grid layout styles:', {
         display: styles.display,
@@ -1923,9 +1955,10 @@ export class HTMLToFigmaConverter {
     }
     
     // EXACT CSS display → Figma layout conversion
-    if (styles.display === 'flex') {
+    if (cleanedStyles.display === 'flex') {
+      console.log('✅ FLEX LAYOUT DETECTED!');
       // CRITICAL FIX: CSS flexbox defaults to 'row' when no flex-direction specified
-      const flexDirection = styles['flex-direction'] || 'row'; // ✅ Default to 'row'
+      const flexDirection = cleanedStyles['flex-direction'] || 'row'; // ✅ Default to 'row'
       const isHorizontal = flexDirection === 'row' || flexDirection === 'row-reverse';
       node.layoutMode = isHorizontal ? 'HORIZONTAL' : 'VERTICAL';
       
@@ -1997,10 +2030,11 @@ export class HTMLToFigmaConverter {
         fillParent: (node as any).fillParentWidth,
         padding: { left: node.paddingLeft, right: node.paddingRight, top: node.paddingTop, bottom: node.paddingBottom }
       });
-    } else if (styles.display === 'grid') {
+    } else if (cleanedStyles.display === 'grid') {
+      console.log('✅ GRID LAYOUT DETECTED!');
       // CRITICAL FIX: Enhanced CSS Grid to Auto Layout conversion
-      const gridTemplateColumns = styles['grid-template-columns'] || '';
-      const gap = this.parseDimension(styles.gap) || 24;
+      const gridTemplateColumns = cleanedStyles['grid-template-columns'] || '';
+      const gap = this.parseDimension(cleanedStyles.gap) || 24;
       
       console.log('[GRID CONVERSION] Processing grid:', {
         gridTemplateColumns,
