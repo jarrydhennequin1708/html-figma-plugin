@@ -1,4 +1,6 @@
 // Enhanced Font Manager with intelligent fallback system
+import { parseColor, type RGB } from './color-parser';
+
 export class FontManager {
   private static loadedFonts = new Set<string>();
   private static fontCache = new Map<string, FontName>();
@@ -71,7 +73,7 @@ export class FontManager {
       textNode.fontSize = parseFloat(styles.fontSize);
     }
     if (styles.color) {
-      const color = this.parseColor(styles.color);
+      const color = parseColor(styles.color);
       if (color) {
         textNode.fills = [{
           type: 'SOLID',
@@ -185,77 +187,7 @@ export class FontManager {
     return 'Regular';
   }
   
-  // CSS Color Parser (temporarily here, should be moved to utils)
-  private static parseColor(cssColor: string): RGB | null {
-    if (!cssColor || cssColor === 'transparent') return null;
-    
-    // Remove spaces and lowercase
-    const color = cssColor.replace(/\s/g, '').toLowerCase();
-    
-    // 3-digit hex: #rgb
-    if (/^#[0-9a-f]{3}$/.test(color)) {
-      const [r, g, b] = color.slice(1).split('').map(c => 
-        parseInt(c + c, 16) / 255
-      );
-      return { r, g, b };
-    }
-    
-    // 6-digit hex: #rrggbb
-    if (/^#[0-9a-f]{6}$/.test(color)) {
-      const r = parseInt(color.slice(1, 3), 16) / 255;
-      const g = parseInt(color.slice(3, 5), 16) / 255;
-      const b = parseInt(color.slice(5, 7), 16) / 255;
-      return { r, g, b };
-    }
-    
-    // rgb(r, g, b)
-    const rgbMatch = color.match(/^rgb\((\d+),(\d+),(\d+)\)$/);
-    if (rgbMatch) {
-      const [_, r, g, b] = rgbMatch;
-      return {
-        r: parseInt(r) / 255,
-        g: parseInt(g) / 255,
-        b: parseInt(b) / 255
-      };
-    }
-    
-    // rgba(r, g, b, a) - ignore alpha for now
-    const rgbaMatch = color.match(/^rgba\((\d+),(\d+),(\d+),[\d.]+\)$/);
-    if (rgbaMatch) {
-      const [_, r, g, b] = rgbaMatch;
-      return {
-        r: parseInt(r) / 255,
-        g: parseInt(g) / 255,
-        b: parseInt(b) / 255
-      };
-    }
-    
-    // Named colors
-    const namedColors: Record<string, RGB> = {
-      'black': { r: 0, g: 0, b: 0 },
-      'white': { r: 1, g: 1, b: 1 },
-      'red': { r: 1, g: 0, b: 0 },
-      'green': { r: 0, g: 0.5, b: 0 },
-      'lime': { r: 0, g: 1, b: 0 },
-      'blue': { r: 0, g: 0, b: 1 },
-      'yellow': { r: 1, g: 1, b: 0 },
-      'cyan': { r: 0, g: 1, b: 1 },
-      'magenta': { r: 1, g: 0, b: 1 },
-      'silver': { r: 0.75, g: 0.75, b: 0.75 },
-      'gray': { r: 0.5, g: 0.5, b: 0.5 },
-      'grey': { r: 0.5, g: 0.5, b: 0.5 },
-      'maroon': { r: 0.5, g: 0, b: 0 },
-      'olive': { r: 0.5, g: 0.5, b: 0 },
-      'navy': { r: 0, g: 0, b: 0.5 },
-      'purple': { r: 0.5, g: 0, b: 0.5 },
-      'teal': { r: 0, g: 0.5, b: 0.5 },
-      'orange': { r: 1, g: 0.65, b: 0 },
-      'pink': { r: 1, g: 0.75, b: 0.8 },
-      'brown': { r: 0.65, g: 0.16, b: 0.16 }
-    };
-    
-    return namedColors[color] || null;
-  }
+  // Color parsing is now handled by the color-parser utility
   
   static async findAvailableFont(requestedFamily: string): Promise<FontName> {
     const fallbackChain = [
@@ -286,11 +218,4 @@ export class FontManager {
     
     throw new Error('No fonts available');
   }
-}
-
-// Type definitions
-interface RGB {
-  r: number;
-  g: number;
-  b: number;
 }
