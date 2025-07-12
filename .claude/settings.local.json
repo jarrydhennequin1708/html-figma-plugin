@@ -11,7 +11,8 @@
       "Bash(rg:*)",
       "Bash(mkdir:*)",
       "Bash(ls:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }

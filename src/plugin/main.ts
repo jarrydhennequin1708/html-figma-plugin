@@ -1,6 +1,7 @@
 // Enhanced Figma Plugin - Complete CSS to Figma Conversion
 import { HTMLToFigmaConverter } from '../conversion/html-to-figma';
 import { FontManager } from '../converter/FontManager';
+import { LayoutUtils } from '../converter/layout-utils';
 
 // Show the UI
 figma.showUI(__html__, { width: 400, height: 500 });
@@ -10,12 +11,16 @@ async function convertToFigma(htmlContent: string, cssContent: string): Promise<
   const startTime = Date.now();
   
   try {
-    console.log('[FINAL PLUGIN] Starting enhanced CSS conversion');
-    console.log('[FINAL PLUGIN] HTML length:', htmlContent?.length || 0);
-    console.log('[FINAL PLUGIN] CSS length:', cssContent?.length || 0);
+    console.log('====================================');
+    console.log('[CONVERSION START] Enhanced CSS to Figma');
+    console.log('[INPUT] HTML length:', htmlContent?.length || 0);
+    console.log('[INPUT] CSS length:', cssContent?.length || 0);
+    console.log('====================================');
     
     // Pre-load fonts using enhanced font manager
+    console.log('[FONTS] Pre-loading common fonts...');
     await FontManager.preloadCommonFonts();
+    console.log('[FONTS] Pre-loading complete');
     
     // Use existing converter with enhanced options
     const converter = new HTMLToFigmaConverter({
@@ -29,11 +34,13 @@ async function convertToFigma(htmlContent: string, cssContent: string): Promise<
     });
     
     // Convert using existing system
+    console.log('[CONVERTER] Starting HTML/CSS conversion...');
     const elements = await converter.convert(htmlContent, cssContent);
-    console.log('[FINAL PLUGIN] Converted to', elements.length, 'elements');
+    console.log('[CONVERTER] Successfully converted to', elements.length, 'elements');
     
     if (elements.length === 0) {
-      throw new Error('No elements found to convert');
+      console.error('[ERROR] No elements found to convert');
+      throw new Error('No elements found to convert. Please check your HTML input.');
     }
     
     // Create main container
@@ -78,29 +85,67 @@ async function convertToFigma(htmlContent: string, cssContent: string): Promise<
     });
     
     // Convert elements with FULL CSS support
+    console.log('[PROCESSING] Converting', elements.length, 'elements to Figma nodes...');
+    let successCount = 0;
+    let errorCount = 0;
+    
     for (let i = 0; i < elements.length; i++) {
       const element = elements[i];
-      console.log('[FINAL PLUGIN] Processing element', i + 1, ':', element.name);
-      debugElementProperties(element);
+      console.log(`\n[ELEMENT ${i + 1}/${elements.length}] Processing:`, element.name);
+      
+      if (element.fills || element.strokes || element.effects) {
+        console.log('[VISUAL] Has visual properties:', {
+          fills: !!element.fills,
+          strokes: !!element.strokes,
+          effects: !!element.effects
+        });
+      }
       
       try {
         const figmaNode = await createEnhancedFigmaNode(element, mainContainer);
-        console.log('[FINAL PLUGIN] Element created successfully:', figmaNode.name);
+        console.log(`[SUCCESS] Created node: ${figmaNode.name}`);
+        successCount++;
       } catch (elementError) {
-        console.error('[FINAL PLUGIN] Failed to create element:', element.name, elementError);
+        console.error(`[ERROR] Failed to create element: ${element.name}`);
+        console.error('[ERROR DETAILS]', elementError);
+        errorCount++;
       }
     }
+    
+    console.log(`\n[SUMMARY] Conversion complete:`);
+    console.log(`  - Success: ${successCount} elements`);
+    console.log(`  - Errors: ${errorCount} elements`);
+    console.log(`  - Total time: ${Date.now() - startTime}ms`);
     
     // Add to page and focus
     figma.currentPage.appendChild(mainContainer);
     figma.currentPage.selection = [mainContainer];
     figma.viewport.scrollAndZoomIntoView([mainContainer]);
     
-    console.log(`[FINAL PLUGIN] Conversion completed in ${Date.now() - startTime}ms`);
-    figma.ui.postMessage({ type: 'success' });
+    console.log('\n====================================');
+    console.log('[CONVERSION COMPLETE] Success!');
+    console.log('====================================\n');
+    
+    figma.ui.postMessage({ 
+      type: 'success',
+      stats: {
+        totalElements: elements.length,
+        successCount,
+        errorCount,
+        duration: Date.now() - startTime
+      }
+    });
     
   } catch (error) {
-    console.error('[FINAL PLUGIN] Conversion failed:', error);
+    console.error('\n====================================');
+    console.error('[CONVERSION FAILED]');
+    console.error('[ERROR TYPE]:', error instanceof Error ? error.constructor.name : typeof error);
+    console.error('[ERROR MESSAGE]:', error instanceof Error ? error.message : String(error));
+    if (error instanceof Error && error.stack) {
+      console.error('[STACK TRACE]:', error.stack);
+    }
+    console.error('====================================\n');
+    
     figma.ui.postMessage({ 
       type: 'error', 
       message: error instanceof Error ? error.message : 'Unknown error occurred'
@@ -119,7 +164,7 @@ async function createEnhancedFigmaNode(element: any, parent: FrameNode): Promise
 
 // Create text node with full CSS text properties
 async function createEnhancedTextNode(element: any, parent: FrameNode): Promise<TextNode> {
-  console.log('[FINAL PLUGIN] Creating text:', element.characters?.substring(0, 50));
+  console.log('[TEXT] Creating text node:', element.characters?.substring(0, 50) || '[empty]');
   
   // Extract ALL text styles
   const styles = extractCompleteTextStyles(element);
@@ -218,73 +263,42 @@ async function createEnhancedTextNode(element: any, parent: FrameNode): Promise<
 
 // Create frame node with COMPLETE CSS visual properties
 async function createEnhancedFrameNode(element: any, parent: FrameNode): Promise<FrameNode> {
-  console.log('[FINAL PLUGIN] Creating frame:', element.name);
+  console.log('[FRAME] Creating frame:', element.name);
   
-  // CRITICAL DEBUG: Visual properties before Figma node creation
-  console.log('[VISUAL DEBUG] Element visual data:', {
-    fills: element.fills,
-    strokes: element.strokes,
-    strokeWeight: element.strokeWeight,
-    hasVisualStyles: !!(element.fills || element.strokes),
-    __cssProperties: element.__cssProperties
-  });
-  
-  console.log('[CSS DEBUG] Frame element full data:', JSON.stringify({
-    name: element.name,
-    fills: element.fills,
-    strokes: element.strokes,
-    strokeWeight: element.strokeWeight,
-    cornerRadius: element.cornerRadius,
-    effects: element.effects,
-    opacity: element.opacity
-  }, null, 2));
+  // Log visual properties if present
+  if (element.fills || element.strokes || element.effects) {
+    console.log('[VISUAL] Frame has visual properties:', {
+      fills: element.fills?.length || 0,
+      strokes: element.strokes?.length || 0,
+      effects: element.effects?.length || 0,
+      cornerRadius: element.cornerRadius || 0
+    });
+  }
   
   const frame = figma.createFrame();
   frame.name = element.name || 'Frame';
   
-  // Add to parent FIRST (critical for Auto Layout)
+  // STEP 1: Add to parent immediately (required for Auto Layout)
   parent.appendChild(frame);
   
-  // Set dimensions
-  const width = element.width || 300;
-  const height = element.height || 100;
-  frame.resize(width, height);
-  
-  // CRITICAL FIX: Apply visual styles BEFORE Auto Layout
-  // This prevents Auto Layout from overriding visual properties
-  if (element.fills !== undefined) {
-    // CRITICAL: Handle both filled and transparent elements
-    if (Array.isArray(element.fills) && element.fills.length > 0) {
-      // Validate fill structure
-      const validFills = element.fills.filter((fill: any) => 
-        fill.type && fill.color && 
-        typeof fill.color.r === 'number' &&
-        typeof fill.color.g === 'number' &&
-        typeof fill.color.b === 'number'
-      );
-      
-      if (validFills.length > 0) {
-        frame.fills = validFills;
-        console.log('[CSS APPLICATION] Applied fills BEFORE Auto Layout:', validFills);
-      } else {
-        // Invalid fills - set transparent
-        frame.fills = [];
-        console.log('[CSS APPLICATION] Invalid fills - setting transparent');
-      }
-    } else if (Array.isArray(element.fills) && element.fills.length === 0) {
-      // CRITICAL: Empty fills array = transparent
-      frame.fills = [];
-      console.log('[CSS APPLICATION] Applied transparent fills (empty array)');
+  // STEP 2: Apply visual properties BEFORE Auto Layout (Critical!)
+  // Background
+  if (element.fills && Array.isArray(element.fills) && element.fills.length > 0) {
+    const validFills = element.fills.filter((fill: any) => 
+      fill.type && fill.color && 
+      typeof fill.color.r === 'number' &&
+      typeof fill.color.g === 'number' &&
+      typeof fill.color.b === 'number'
+    );
+    
+    if (validFills.length > 0) {
+      frame.fills = validFills;
+      console.log('[VISUAL PROPS] Applied fills:', validFills);
     }
-  } else {
-    // No fills specified - default to transparent to prevent white background
-    frame.fills = [];
-    console.log('[CSS APPLICATION] No fills specified - defaulting to transparent');
   }
   
-  // Apply borders/strokes BEFORE Auto Layout
+  // Borders
   if (element.strokes && Array.isArray(element.strokes) && element.strokes.length > 0) {
-    // Validate stroke structure
     const validStrokes = element.strokes.filter((stroke: any) => 
       stroke.type && stroke.color && 
       typeof stroke.color.r === 'number' &&
@@ -296,125 +310,89 @@ async function createEnhancedFrameNode(element: any, parent: FrameNode): Promise
       frame.strokes = validStrokes;
       frame.strokeWeight = element.strokeWeight || 1;
       frame.strokeAlign = 'INSIDE';
-      console.log('[CSS APPLICATION] Applied strokes BEFORE Auto Layout:', validStrokes);
+      console.log('[VISUAL PROPS] Applied strokes:', validStrokes, 'weight:', element.strokeWeight);
     }
   }
   
-  // Apply corner radius BEFORE Auto Layout
+  // Border radius
   if (element.cornerRadius !== undefined && element.cornerRadius > 0) {
     frame.cornerRadius = element.cornerRadius;
-    console.log('[CSS APPLICATION] Applied corner radius BEFORE Auto Layout:', element.cornerRadius);
+    console.log('[VISUAL PROPS] Applied corner radius:', element.cornerRadius);
   }
   
-  // Apply effects BEFORE Auto Layout
+  // Effects (shadows, etc.)
   if (element.effects && element.effects.length > 0) {
     frame.effects = element.effects;
-    console.log('[CSS APPLICATION] Applied effects BEFORE Auto Layout:', element.effects);
+    console.log('[VISUAL PROPS] Applied effects:', element.effects);
   }
   
-  // Apply opacity BEFORE Auto Layout
+  // Opacity
   if (element.opacity !== undefined && element.opacity < 1) {
     frame.opacity = element.opacity;
-    console.log('[CSS APPLICATION] Applied opacity BEFORE Auto Layout:', element.opacity);
+    console.log('[VISUAL PROPS] Applied opacity:', element.opacity);
   }
   
-  // Apply Auto Layout if element has it
-  if (element.layoutMode && element.layoutMode !== 'NONE') {
-    frame.layoutMode = element.layoutMode;
-    
-    // Apply sizing modes from element
-    if (element.primaryAxisSizingMode) {
-      frame.primaryAxisSizingMode = element.primaryAxisSizingMode;
-    } else {
-      frame.primaryAxisSizingMode = 'AUTO'; // Default to HUG
-    }
-    
-    if (element.counterAxisSizingMode) {
-      frame.counterAxisSizingMode = element.counterAxisSizingMode;
-    } else {
-      frame.counterAxisSizingMode = 'AUTO'; // Default to HUG
-    }
-    
-    // CRITICAL FIX: Apply CSS alignment properties
-    if (element.justifyContent) {
-      console.log('[ALIGNMENT FIX] Applying justify-content:', element.justifyContent);
-      switch (element.justifyContent) {
-        case 'space-between':
-          frame.primaryAxisAlignItems = 'SPACE_BETWEEN';
-          break;
-        case 'center':
-          frame.primaryAxisAlignItems = 'CENTER';
-          break;
-        case 'flex-end':
-        case 'end':
-          frame.primaryAxisAlignItems = 'MAX';
-          break;
-        case 'flex-start':
-        case 'start':
-        default:
-          frame.primaryAxisAlignItems = 'MIN';
-          break;
-      }
-    }
-    
-    if (element.alignItems) {
-      console.log('[ALIGNMENT FIX] Applying align-items:', element.alignItems);
-      switch (element.alignItems) {
-        case 'center':
-          frame.counterAxisAlignItems = 'CENTER';
-          break;
-        case 'flex-end':
-        case 'end':
-          frame.counterAxisAlignItems = 'MAX';
-          break;
-        case 'flex-start':
-        case 'start':
-        default:
-          frame.counterAxisAlignItems = 'MIN';
-          break;
-      }
-    }
-    
-    // Apply spacing and padding
-    frame.itemSpacing = element.itemSpacing || 0;
-    frame.paddingTop = element.paddingTop || 0;
-    frame.paddingRight = element.paddingRight || 0;
-    frame.paddingBottom = element.paddingBottom || 0;
-    frame.paddingLeft = element.paddingLeft || 0;
-    
-    // CRITICAL FIX: Apply grid wrapping properties
-    if (element.isAutoFitGrid && element.layoutWrap) {
-      console.log('[GRID WRAPPING] Applying wrap properties for:', element.name);
-      if ('layoutWrap' in frame) {
-        (frame as any).layoutWrap = element.layoutWrap;
-      }
-      if (element.counterAxisSpacing && 'counterAxisSpacing' in frame) {
-        (frame as any).counterAxisSpacing = element.counterAxisSpacing;
-      }
-      console.log('[GRID WRAPPING] Applied layoutWrap and counterAxisSpacing');
-    }
+  // Store padding for later Auto Layout use
+  if (element.paddingTop || element.paddingRight || element.paddingBottom || element.paddingLeft) {
+    frame.setPluginData('padding', JSON.stringify({
+      top: element.paddingTop || 0,
+      right: element.paddingRight || 0,
+      bottom: element.paddingBottom || 0,
+      left: element.paddingLeft || 0
+    }));
   }
   
-  // NOTE: Visual styles already applied BEFORE Auto Layout to prevent overrides
+  // STEP 3: NOW apply Auto Layout if needed
+  try {
+    // Check for absolute positioning first
+    if (element.computedStyles?.position === 'absolute') {
+      const absFrame = LayoutUtils.handleAbsolutePosition(element, parent);
+      if (absFrame) {
+        // Copy visual properties to absolute frame
+        absFrame.fills = frame.fills;
+        absFrame.strokes = frame.strokes;
+        absFrame.strokeWeight = frame.strokeWeight;
+        absFrame.cornerRadius = frame.cornerRadius;
+        absFrame.effects = frame.effects;
+        absFrame.opacity = frame.opacity;
+        // Remove the regular frame and use absolute frame instead
+        frame.remove();
+        return absFrame;
+      }
+    }
+    
+    // Apply Auto Layout for flex/grid
+    const styles = element.computedStyles || {};
+    if (styles.display === 'flex' || styles.display === 'inline-flex') {
+      await LayoutUtils.setupAutoLayout(frame, styles);
+    } else if (styles.display === 'grid') {
+      LayoutUtils.convertGridToAutoLayout(frame, styles);
+    } else if (element.layoutMode && element.layoutMode !== 'NONE') {
+      // Fallback to element's layout mode
+      frame.layoutMode = element.layoutMode;
+      
+      // Apply stored padding
+      const paddingData = frame.getPluginData('padding');
+      if (paddingData) {
+        const padding = JSON.parse(paddingData);
+        frame.paddingTop = padding.top;
+        frame.paddingRight = padding.right;
+        frame.paddingBottom = padding.bottom;
+        frame.paddingLeft = padding.left;
+      }
+      
+      // Apply spacing
+      frame.itemSpacing = element.itemSpacing || 0;
+    }
+  } catch (layoutError) {
+    console.error('[LAYOUT ERROR] Failed to apply layout:', layoutError);
+  }
   
-  // CRITICAL FIX: Check for tracked CSS properties and reapply if needed
-  if (element.__cssProperties) {
-    console.log('[CSS RECOVERY] Found tracked CSS properties:', element.__cssProperties);
-    
-    // Reapply background if not set
-    if ((!frame.fills || (frame.fills as any).length === 0) && element.__cssProperties.backgroundColor) {
-      console.log('[CSS RECOVERY] Reapplying background color:', element.__cssProperties.backgroundColor);
-      const color = parseColor(element.__cssProperties.backgroundColor);
-      frame.fills = [{ type: 'SOLID', color, opacity: 1 }];
-    }
-    
-    // Reapply border if not set
-    if ((!frame.strokes || (frame.strokes as any).length === 0) && element.__cssProperties.borderColor) {
-      console.log('[CSS RECOVERY] Reapplying border:', element.__cssProperties.borderColor, element.__cssProperties.borderWidth);
-      const borderColor = parseColor(element.__cssProperties.borderColor);
-      frame.strokes = [{ type: 'SOLID', color: borderColor, opacity: 1 }];
-      frame.strokeWeight = element.__cssProperties.borderWidth || 1;
-    }
+  // STEP 4: Set dimensions (after Auto Layout to respect sizing modes)
+  const width = element.width || 300;
+  const height = element.height || 100;
+  if (!element.layoutMode || element.layoutMode === 'NONE') {
+    frame.resize(width, height);
   }
   
   // CRITICAL FIX: Apply Auto Layout child constraints for dashboard-container
@@ -600,69 +578,283 @@ function applyCompleteVisualStyles(frame: FrameNode, element: any): void {
   }
 }
 
-// Parse CSS color to Figma color format
-function parseColor(colorString: string): { r: number; g: number; b: number } {
-  if (!colorString) return { r: 0, g: 0, b: 0 };
-
-  // Handle hex colors
-  if (colorString.startsWith('#')) {
-    const hex = colorString.slice(1);
-    let r: number, g: number, b: number;
-
-    if (hex.length === 3) {
-      r = parseInt(hex[0] + hex[0], 16) / 255;
-      g = parseInt(hex[1] + hex[1], 16) / 255;
-      b = parseInt(hex[2] + hex[2], 16) / 255;
-    } else {
-      r = parseInt(hex.slice(0, 2), 16) / 255;
-      g = parseInt(hex.slice(2, 4), 16) / 255;
-      b = parseInt(hex.slice(4, 6), 16) / 255;
-    }
-
+// Comprehensive CSS color parser
+function parseColor(cssColor: string): RGB | null {
+  if (!cssColor || cssColor === 'transparent') return null;
+  
+  // Remove spaces and lowercase
+  const color = cssColor.replace(/\s/g, '').toLowerCase();
+  
+  // 3-digit hex: #rgb
+  if (/^#[0-9a-f]{3}$/.test(color)) {
+    const [r, g, b] = color.slice(1).split('').map(c => 
+      parseInt(c + c, 16) / 255
+    );
     return { r, g, b };
   }
-
-  // Handle rgb/rgba colors
-  const rgbMatch = colorString.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  
+  // 6-digit hex: #rrggbb
+  if (/^#[0-9a-f]{6}$/.test(color)) {
+    const r = parseInt(color.slice(1, 3), 16) / 255;
+    const g = parseInt(color.slice(3, 5), 16) / 255;
+    const b = parseInt(color.slice(5, 7), 16) / 255;
+    return { r, g, b };
+  }
+  
+  // 8-digit hex: #rrggbbaa (ignore alpha)
+  if (/^#[0-9a-f]{8}$/.test(color)) {
+    const r = parseInt(color.slice(1, 3), 16) / 255;
+    const g = parseInt(color.slice(3, 5), 16) / 255;
+    const b = parseInt(color.slice(5, 7), 16) / 255;
+    return { r, g, b };
+  }
+  
+  // rgb(r, g, b) or rgb(r g b)
+  const rgbMatch = color.match(/^rgb\((\d+)\s*,?\s*(\d+)\s*,?\s*(\d+)\)$/);
   if (rgbMatch) {
+    const [_, r, g, b] = rgbMatch;
     return {
-      r: parseInt(rgbMatch[1]) / 255,
-      g: parseInt(rgbMatch[2]) / 255,
-      b: parseInt(rgbMatch[3]) / 255
+      r: parseInt(r) / 255,
+      g: parseInt(g) / 255,
+      b: parseInt(b) / 255
     };
   }
-
-  // Named colors
-  const namedColors: Record<string, { r: number; g: number; b: number }> = {
+  
+  // rgba(r, g, b, a) - ignore alpha
+  const rgbaMatch = color.match(/^rgba\((\d+)\s*,?\s*(\d+)\s*,?\s*(\d+)\s*,?\s*[\d.]+\)$/);
+  if (rgbaMatch) {
+    const [_, r, g, b] = rgbaMatch;
+    return {
+      r: parseInt(r) / 255,
+      g: parseInt(g) / 255,
+      b: parseInt(b) / 255
+    };
+  }
+  
+  // hsl/hsla conversion
+  const hslMatch = color.match(/^hsla?\((\d+)\s*,?\s*([\d.]+)%\s*,?\s*([\d.]+)%/);
+  if (hslMatch) {
+    const [_, h, s, l] = hslMatch;
+    const hNum = parseInt(h) / 360;
+    const sNum = parseFloat(s) / 100;
+    const lNum = parseFloat(l) / 100;
+    return hslToRgb(hNum, sNum, lNum);
+  }
+  
+  // Extended named colors
+  const namedColors: Record<string, RGB> = {
+    'aliceblue': { r: 0.94, g: 0.97, b: 1 },
+    'antiquewhite': { r: 0.98, g: 0.92, b: 0.84 },
+    'aqua': { r: 0, g: 1, b: 1 },
+    'aquamarine': { r: 0.5, g: 1, b: 0.83 },
+    'azure': { r: 0.94, g: 1, b: 1 },
+    'beige': { r: 0.96, g: 0.96, b: 0.86 },
+    'bisque': { r: 1, g: 0.89, b: 0.77 },
     'black': { r: 0, g: 0, b: 0 },
-    'white': { r: 1, g: 1, b: 1 },
-    'red': { r: 1, g: 0, b: 0 },
-    'green': { r: 0, g: 1, b: 0 },
+    'blanchedalmond': { r: 1, g: 0.92, b: 0.8 },
     'blue': { r: 0, g: 0, b: 1 },
+    'blueviolet': { r: 0.54, g: 0.17, b: 0.89 },
+    'brown': { r: 0.65, g: 0.16, b: 0.16 },
+    'burlywood': { r: 0.87, g: 0.72, b: 0.53 },
+    'cadetblue': { r: 0.37, g: 0.62, b: 0.63 },
+    'chartreuse': { r: 0.5, g: 1, b: 0 },
+    'chocolate': { r: 0.82, g: 0.41, b: 0.12 },
+    'coral': { r: 1, g: 0.5, b: 0.31 },
+    'cornflowerblue': { r: 0.39, g: 0.58, b: 0.93 },
+    'cornsilk': { r: 1, g: 0.97, b: 0.86 },
+    'crimson': { r: 0.86, g: 0.08, b: 0.24 },
+    'cyan': { r: 0, g: 1, b: 1 },
+    'darkblue': { r: 0, g: 0, b: 0.55 },
+    'darkcyan': { r: 0, g: 0.55, b: 0.55 },
+    'darkgoldenrod': { r: 0.72, g: 0.53, b: 0.04 },
+    'darkgray': { r: 0.66, g: 0.66, b: 0.66 },
+    'darkgrey': { r: 0.66, g: 0.66, b: 0.66 },
+    'darkgreen': { r: 0, g: 0.39, b: 0 },
+    'darkkhaki': { r: 0.74, g: 0.72, b: 0.42 },
+    'darkmagenta': { r: 0.55, g: 0, b: 0.55 },
+    'darkolivegreen': { r: 0.33, g: 0.42, b: 0.18 },
+    'darkorange': { r: 1, g: 0.55, b: 0 },
+    'darkorchid': { r: 0.6, g: 0.2, b: 0.8 },
+    'darkred': { r: 0.55, g: 0, b: 0 },
+    'darksalmon': { r: 0.91, g: 0.59, b: 0.48 },
+    'darkseagreen': { r: 0.56, g: 0.74, b: 0.56 },
+    'darkslateblue': { r: 0.28, g: 0.24, b: 0.55 },
+    'darkslategray': { r: 0.18, g: 0.31, b: 0.31 },
+    'darkslategrey': { r: 0.18, g: 0.31, b: 0.31 },
+    'darkturquoise': { r: 0, g: 0.81, b: 0.82 },
+    'darkviolet': { r: 0.58, g: 0, b: 0.83 },
+    'deeppink': { r: 1, g: 0.08, b: 0.58 },
+    'deepskyblue': { r: 0, g: 0.75, b: 1 },
+    'dimgray': { r: 0.41, g: 0.41, b: 0.41 },
+    'dimgrey': { r: 0.41, g: 0.41, b: 0.41 },
+    'dodgerblue': { r: 0.12, g: 0.56, b: 1 },
+    'firebrick': { r: 0.7, g: 0.13, b: 0.13 },
+    'floralwhite': { r: 1, g: 0.98, b: 0.94 },
+    'forestgreen': { r: 0.13, g: 0.55, b: 0.13 },
+    'fuchsia': { r: 1, g: 0, b: 1 },
+    'gainsboro': { r: 0.86, g: 0.86, b: 0.86 },
+    'ghostwhite': { r: 0.97, g: 0.97, b: 1 },
+    'gold': { r: 1, g: 0.84, b: 0 },
+    'goldenrod': { r: 0.85, g: 0.65, b: 0.13 },
     'gray': { r: 0.5, g: 0.5, b: 0.5 },
-    'grey': { r: 0.5, g: 0.5, b: 0.5 }
+    'grey': { r: 0.5, g: 0.5, b: 0.5 },
+    'green': { r: 0, g: 0.5, b: 0 },
+    'greenyellow': { r: 0.68, g: 1, b: 0.18 },
+    'honeydew': { r: 0.94, g: 1, b: 0.94 },
+    'hotpink': { r: 1, g: 0.41, b: 0.71 },
+    'indianred': { r: 0.8, g: 0.36, b: 0.36 },
+    'indigo': { r: 0.29, g: 0, b: 0.51 },
+    'ivory': { r: 1, g: 1, b: 0.94 },
+    'khaki': { r: 0.94, g: 0.9, b: 0.55 },
+    'lavender': { r: 0.9, g: 0.9, b: 0.98 },
+    'lavenderblush': { r: 1, g: 0.94, b: 0.96 },
+    'lawngreen': { r: 0.49, g: 0.99, b: 0 },
+    'lemonchiffon': { r: 1, g: 0.98, b: 0.8 },
+    'lightblue': { r: 0.68, g: 0.85, b: 0.9 },
+    'lightcoral': { r: 0.94, g: 0.5, b: 0.5 },
+    'lightcyan': { r: 0.88, g: 1, b: 1 },
+    'lightgoldenrodyellow': { r: 0.98, g: 0.98, b: 0.82 },
+    'lightgray': { r: 0.83, g: 0.83, b: 0.83 },
+    'lightgrey': { r: 0.83, g: 0.83, b: 0.83 },
+    'lightgreen': { r: 0.56, g: 0.93, b: 0.56 },
+    'lightpink': { r: 1, g: 0.71, b: 0.76 },
+    'lightsalmon': { r: 1, g: 0.63, b: 0.48 },
+    'lightseagreen': { r: 0.13, g: 0.7, b: 0.67 },
+    'lightskyblue': { r: 0.53, g: 0.81, b: 0.98 },
+    'lightslategray': { r: 0.47, g: 0.53, b: 0.6 },
+    'lightslategrey': { r: 0.47, g: 0.53, b: 0.6 },
+    'lightsteelblue': { r: 0.69, g: 0.77, b: 0.87 },
+    'lightyellow': { r: 1, g: 1, b: 0.88 },
+    'lime': { r: 0, g: 1, b: 0 },
+    'limegreen': { r: 0.2, g: 0.8, b: 0.2 },
+    'linen': { r: 0.98, g: 0.94, b: 0.9 },
+    'magenta': { r: 1, g: 0, b: 1 },
+    'maroon': { r: 0.5, g: 0, b: 0 },
+    'mediumaquamarine': { r: 0.4, g: 0.8, b: 0.67 },
+    'mediumblue': { r: 0, g: 0, b: 0.8 },
+    'mediumorchid': { r: 0.73, g: 0.33, b: 0.83 },
+    'mediumpurple': { r: 0.58, g: 0.44, b: 0.86 },
+    'mediumseagreen': { r: 0.24, g: 0.7, b: 0.44 },
+    'mediumslateblue': { r: 0.48, g: 0.41, b: 0.93 },
+    'mediumspringgreen': { r: 0, g: 0.98, b: 0.6 },
+    'mediumturquoise': { r: 0.28, g: 0.82, b: 0.8 },
+    'mediumvioletred': { r: 0.78, g: 0.08, b: 0.52 },
+    'midnightblue': { r: 0.1, g: 0.1, b: 0.44 },
+    'mintcream': { r: 0.96, g: 1, b: 0.98 },
+    'mistyrose': { r: 1, g: 0.89, b: 0.88 },
+    'moccasin': { r: 1, g: 0.89, b: 0.71 },
+    'navajowhite': { r: 1, g: 0.87, b: 0.68 },
+    'navy': { r: 0, g: 0, b: 0.5 },
+    'oldlace': { r: 0.99, g: 0.96, b: 0.9 },
+    'olive': { r: 0.5, g: 0.5, b: 0 },
+    'olivedrab': { r: 0.42, g: 0.56, b: 0.14 },
+    'orange': { r: 1, g: 0.65, b: 0 },
+    'orangered': { r: 1, g: 0.27, b: 0 },
+    'orchid': { r: 0.85, g: 0.44, b: 0.84 },
+    'palegoldenrod': { r: 0.93, g: 0.91, b: 0.67 },
+    'palegreen': { r: 0.6, g: 0.98, b: 0.6 },
+    'paleturquoise': { r: 0.69, g: 0.93, b: 0.93 },
+    'palevioletred': { r: 0.86, g: 0.44, b: 0.58 },
+    'papayawhip': { r: 1, g: 0.94, b: 0.84 },
+    'peachpuff': { r: 1, g: 0.85, b: 0.73 },
+    'peru': { r: 0.8, g: 0.52, b: 0.25 },
+    'pink': { r: 1, g: 0.75, b: 0.8 },
+    'plum': { r: 0.87, g: 0.63, b: 0.87 },
+    'powderblue': { r: 0.69, g: 0.88, b: 0.9 },
+    'purple': { r: 0.5, g: 0, b: 0.5 },
+    'rebeccapurple': { r: 0.4, g: 0.2, b: 0.6 },
+    'red': { r: 1, g: 0, b: 0 },
+    'rosybrown': { r: 0.74, g: 0.56, b: 0.56 },
+    'royalblue': { r: 0.25, g: 0.41, b: 0.88 },
+    'saddlebrown': { r: 0.55, g: 0.27, b: 0.07 },
+    'salmon': { r: 0.98, g: 0.5, b: 0.45 },
+    'sandybrown': { r: 0.96, g: 0.64, b: 0.38 },
+    'seagreen': { r: 0.18, g: 0.55, b: 0.34 },
+    'seashell': { r: 1, g: 0.96, b: 0.93 },
+    'sienna': { r: 0.63, g: 0.32, b: 0.18 },
+    'silver': { r: 0.75, g: 0.75, b: 0.75 },
+    'skyblue': { r: 0.53, g: 0.81, b: 0.92 },
+    'slateblue': { r: 0.42, g: 0.35, b: 0.8 },
+    'slategray': { r: 0.44, g: 0.5, b: 0.56 },
+    'slategrey': { r: 0.44, g: 0.5, b: 0.56 },
+    'snow': { r: 1, g: 0.98, b: 0.98 },
+    'springgreen': { r: 0, g: 1, b: 0.5 },
+    'steelblue': { r: 0.27, g: 0.51, b: 0.71 },
+    'tan': { r: 0.82, g: 0.71, b: 0.55 },
+    'teal': { r: 0, g: 0.5, b: 0.5 },
+    'thistle': { r: 0.85, g: 0.75, b: 0.85 },
+    'tomato': { r: 1, g: 0.39, b: 0.28 },
+    'turquoise': { r: 0.25, g: 0.88, b: 0.82 },
+    'violet': { r: 0.93, g: 0.51, b: 0.93 },
+    'wheat': { r: 0.96, g: 0.87, b: 0.7 },
+    'white': { r: 1, g: 1, b: 1 },
+    'whitesmoke': { r: 0.96, g: 0.96, b: 0.96 },
+    'yellow': { r: 1, g: 1, b: 0 },
+    'yellowgreen': { r: 0.6, g: 0.8, b: 0.2 }
   };
-
-  return namedColors[colorString.toLowerCase()] || { r: 0, g: 0, b: 0 };
+  
+  return namedColors[color] || null;
 }
 
-// CRITICAL DEBUGGING: Show all properties on elements
+// HSL to RGB conversion helper
+function hslToRgb(h: number, s: number, l: number): RGB {
+  let r: number, g: number, b: number;
+  
+  if (s === 0) {
+    r = g = b = l; // achromatic
+  } else {
+    const hue2rgb = (p: number, q: number, t: number) => {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1/6) return p + (q - p) * 6 * t;
+      if (t < 1/2) return q;
+      if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+      return p;
+    };
+    
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1/3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1/3);
+  }
+  
+  return { r, g, b };
+}
+
+// Type definition
+interface RGB {
+  r: number;
+  g: number;
+  b: number;
+}
+
+// Enhanced debugging for element properties
 function debugElementProperties(element: any): void {
-  console.log('=== ELEMENT DEBUG ===');
-  console.log('Name:', element.name);
-  console.log('Type:', element.type);
-  console.log('Has fills:', !!element.fills, 'Count:', element.fills?.length);
-  console.log('Fills:', JSON.stringify(element.fills));
-  console.log('Has strokes:', !!element.strokes, 'Count:', element.strokes?.length);
-  console.log('Strokes:', JSON.stringify(element.strokes));
-  console.log('Stroke weight:', element.strokeWeight);
-  console.log('Corner radius:', element.cornerRadius);
-  console.log('Effects:', JSON.stringify(element.effects));
-  console.log('Opacity:', element.opacity);
-  console.log('Width/Height:', element.width, 'x', element.height);
-  console.log('Layout mode:', element.layoutMode);
-  console.log('All properties:', Object.keys(element));
-  console.log('===================');
+  if (!element) return;
+  
+  const visualProps = {
+    name: element.name,
+    type: element.type,
+    fills: element.fills?.length || 0,
+    strokes: element.strokes?.length || 0,
+    effects: element.effects?.length || 0,
+    opacity: element.opacity,
+    cornerRadius: element.cornerRadius
+  };
+  
+  const layoutProps = {
+    layoutMode: element.layoutMode,
+    width: element.width,
+    height: element.height,
+    primaryAxisSizing: element.primaryAxisSizingMode,
+    counterAxisSizing: element.counterAxisSizingMode
+  };
+  
+  console.log('[DEBUG] Element properties:', {
+    visual: visualProps,
+    layout: layoutProps
+  });
 }
 
 // Handle messages from UI
