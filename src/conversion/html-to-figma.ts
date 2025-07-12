@@ -779,7 +779,8 @@ class SimpleHTMLParser {
       }
     }
     
-    return styles;
+    // Apply quote removal to inline styles as well
+    return stripQuotesFromAllValues(styles);
   }
 }
 
@@ -1044,9 +1045,12 @@ class SimpleCSSParser {
       });
       
       if (Object.keys(declarations).length > 0) {
+        // CRITICAL: Apply quote removal to all declarations
+        const cleanedDeclarations = stripQuotesFromAllValues(declarations);
+        
         this.rules.push({
           selector,
-          declarations,
+          declarations: cleanedDeclarations,
           specificity: this.calculateSpecificity(selector)
         });
         ruleCount++;

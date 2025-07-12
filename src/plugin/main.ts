@@ -5,6 +5,45 @@ import { FixedFontManager } from '../utils/font-manager-fixed';
 import { CSSPropertyExtractor } from '../utils/css-property-extractor';
 import { SizingStrategy } from '../utils/sizing-strategy';
 
+// Add quote removal test function
+function testQuoteRemoval() {
+  console.log('🧪 Testing quote removal...');
+  const testInput = {
+    display: "'grid'",
+    gap: "'24px'",
+    backgroundColor: "'#1a1a1a'"
+  };
+  
+  // Create a simple quote removal function for testing
+  function removeQuotes(obj: any): any {
+    const result: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (typeof value === 'string' && 
+          ((value.startsWith("'") && value.endsWith("'")) || 
+           (value.startsWith('"') && value.endsWith('"')))) {
+        result[key] = value.slice(1, -1);
+      } else {
+        result[key] = value;
+      }
+    }
+    return result;
+  }
+  
+  const result = removeQuotes(testInput);
+  console.log('Input:', testInput);
+  console.log('Output:', result);
+  console.log('Grid detection works:', result.display === 'grid');
+  
+  if (result.display === 'grid') {
+    console.log('✅ Quote removal is working correctly!');
+  } else {
+    console.log('❌ Quote removal failed!');
+  }
+}
+
+// Call this function at plugin startup
+testQuoteRemoval();
+
 // Show UI
 figma.showUI(__html__, { width: 400, height: 600 });
 
