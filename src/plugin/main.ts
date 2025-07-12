@@ -267,9 +267,10 @@ async function createFrameNodeWithFixes(element: any, parent: FrameNode, propert
   // STEP 5: Apply intelligent sizing strategy
   const isChild = parent.name !== 'Converted HTML';
   
-  // Check if element is marked to fill parent
-  const shouldFillParent = element.shouldFillParent || 
-                          element.fillParentWidth || 
+  // Check if element is marked to fill parent - CRITICAL: Check element data first
+  const shouldFillParent = element.shouldFillParent === true || 
+                          element.fillParentWidth === true || 
+                          (element.layoutHints && element.layoutHints.shouldFillParent) ||
                           (isChild && !properties.width && !properties.maxWidth) ||
                           // Common container patterns that should fill
                           (isChild && element.name && (
@@ -280,9 +281,14 @@ async function createFrameNodeWithFixes(element: any, parent: FrameNode, propert
                             element.name.includes('wrapper')
                           ));
   
+  // Also check layout hints from converter
+  const layoutHints = element.layoutHints || {};
+  
   SizingStrategy.applySizing(frame, {
     ...properties,
-    shouldFillParent
+    shouldFillParent,
+    layoutHints,  // Pass layout hints to sizing strategy
+    elementData: element  // Pass raw element data for debugging
   }, {
     isChild,
     parentDisplay: parent.layoutMode !== 'NONE' ? 'flex' : 'block',

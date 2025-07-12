@@ -11,8 +11,12 @@ export class SizingStrategy {
   ): void {
     console.log('[SizingStrategy] Applying sizing:', {
       name: node.name,
-      properties,
-      context
+      width: properties.width,
+      maxWidth: properties.maxWidth,
+      shouldFillParent: properties.shouldFillParent,
+      layoutHints: properties.layoutHints,
+      isChild: context.isChild,
+      parentDisplay: context.parentDisplay
     });
     
     const width = properties.width;
@@ -55,6 +59,11 @@ export class SizingStrategy {
         if ('layoutSizingHorizontal' in node) {
           node.layoutSizingHorizontal = 'FILL';
           console.log('[SizingStrategy] No width specified - using FILL mode for:', node.name);
+          
+          // CRITICAL: For FILL to work, parent must have Auto Layout
+          if (node.parent && 'layoutMode' in node.parent && node.parent.layoutMode === 'NONE') {
+            console.warn('[SizingStrategy] WARNING: Parent has no Auto Layout, FILL won\'t work!');
+          }
         }
       } else {
         if ('layoutSizingHorizontal' in node) {
@@ -84,16 +93,32 @@ export class SizingStrategy {
     // Already marked to fill
     if (properties.shouldFillParent) return true;
     
+    // Check layout hints from converter
+    if (properties.layoutHints) {
+      if (properties.layoutHints.shouldFillParent) return true;
+      if (properties.layoutHints.isLayoutChild) return true;
+      if (properties.layoutHints.shouldFillFlex) return true;
+      if (properties.layoutHints.isContainerSection) return true;
+    }
+    
+    // Check element data
+    if (properties.elementData) {
+      if (properties.elementData.shouldFillParent) return true;
+      if (properties.elementData.fillParentWidth) return true;
+    }
+    
     // Container elements (flex/grid) should FILL
     if (properties.display === 'flex' || properties.display === 'grid') return true;
     
     // Child elements in Auto Layout containers should usually FILL
-    if (context.isChild) return true;
+    if (context.isChild && context.parentDisplay === 'flex') return true;
     
     // Text elements should HUG
     if (properties.isTextElement) return false;
+    if (properties.layoutHints && properties.layoutHints.isTextElement) return false;
     
-    return false; // Default to HUG for unknown elements
+    // Default to FILL for child elements
+    return context.isChild;
   }
   
   static applyLayoutProperties(node: FrameNode, properties: any): void {
