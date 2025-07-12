@@ -213,11 +213,25 @@ async function createFrameNodeWithFixes(element: any, parent: FrameNode, propert
   
   console.log('[ORDER] Step 2: Applied all visual properties');
   
-  // STEP 3: Set initial size (will be adjusted by sizing strategy)
-  const width = element.width || 100;
-  const height = element.height || 100;
-  frame.resize(width, height);
-  console.log('[ORDER] Step 3: Set initial size:', width, 'x', height);
+  // STEP 3: Set initial size ONLY if provided (sizing strategy will handle defaults)
+  // Don't set default dimensions - let Auto Layout handle it
+  if (element.width && element.width > 0) {
+    if (element.height && element.height > 0) {
+      frame.resize(element.width, element.height);
+      console.log('[ORDER] Step 3: Set explicit size:', element.width, 'x', element.height);
+    } else {
+      frame.resize(element.width, 100); // Width only, height will be HUG
+      console.log('[ORDER] Step 3: Set width only:', element.width);
+    }
+  } else if (properties.width || properties.maxWidth) {
+    // Use CSS values if element doesn't have explicit dimensions
+    const cssWidth = properties.width || properties.maxWidth || 0;
+    if (cssWidth > 0) {
+      frame.resize(cssWidth, 100); // Height will be adjusted by sizing strategy
+      console.log('[ORDER] Step 3: Set CSS width:', cssWidth);
+    }
+  }
+  // If no dimensions, don't resize - let Auto Layout handle it
   
   // STEP 4: Apply Auto Layout with actual CSS values
   if (element.layoutMode && element.layoutMode !== 'NONE') {

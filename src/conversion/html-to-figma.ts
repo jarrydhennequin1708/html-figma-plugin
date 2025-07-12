@@ -150,8 +150,8 @@ class SizingStrategyResolver {
     if (shouldFillWidth && !context.hasIntrinsicSize) {
       console.log('[SIZING STRATEGY] Child of layout container - should FILL width');
       return {
-        width: 100, // Will be overridden by fill behavior
-        height: 100,
+        width: 300, // Initial width - will be overridden by FILL
+        height: 100, // Initial height - will be overridden by HUG
         usesLayoutSizing: true,
         shouldFillParent: true,
         isCentered: false,
@@ -215,11 +215,12 @@ class SizingStrategyResolver {
     
     // 4. Centered containers with max-width
     if (context.isCenteredContainer && styles['max-width']) {
+      const maxWidth = this.parseDimension(styles['max-width']);
       return {
-        width: 100,
+        width: maxWidth || 1400, // Use actual max-width value
         height: 100,
         usesLayoutSizing: true,
-        shouldFillParent: true,
+        shouldFillParent: false, // Don't fill parent, use max-width
         isCentered: true,
         layoutHints: { maxWidth: styles['max-width'] }
       };
@@ -313,11 +314,11 @@ class SizingStrategyResolver {
       };
     }
     
-    // 8. Default sizing
+    // 8. Default sizing - use reasonable defaults when no CSS is specified
     const width = this.parseDimension(styles.width) || 
                   this.parseDimension(styles['max-width']) || 
-                  200;
-    const height = this.parseDimension(styles.height) || 100;
+                  300; // Reasonable default width
+    const height = this.parseDimension(styles.height) || 100; // Reasonable default height
     
     return {
       width,
