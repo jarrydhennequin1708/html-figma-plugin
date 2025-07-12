@@ -1017,7 +1017,13 @@ class SimpleCSSParser {
           let value = decl.substring(colonIndex + 1).trim();
           
           // CRITICAL FIX: Remove quotes from CSS values
+          const originalValue = value;
           value = value.replace(/^['"]|['"]$/g, '');
+          
+          // DEBUG: Log if quotes were removed
+          if (originalValue !== value) {
+            console.warn(`[CSS PARSER] Removed quotes from ${prop}: "${originalValue}" → "${value}"`);
+          }
           
           if (prop && value) {
             declarations[prop] = value;
@@ -1368,8 +1374,31 @@ export class HTMLToFigmaConverter {
     CSSSourceDebugger.debugCSSMatchingLogic(element);
     
     // Get EXACT computed styles - NO interpretation
-    const styles = this.cssParser!.getStylesForElement(element);
+    const rawStyles = this.cssParser!.getStylesForElement(element);
+    
+    // CRITICAL: Double-check quote removal
+    const styles: Record<string, string> = {};
+    for (const [key, value] of Object.entries(rawStyles)) {
+      if (typeof value === 'string') {
+        const cleanValue = value.replace(/^['"]|['"]$/g, '');
+        if (cleanValue !== value) {
+          console.warn(`[QUOTE FIX] Cleaned ${key}: "${value}" → "${cleanValue}"`);
+        }
+        styles[key] = cleanValue;
+      } else {
+        styles[key] = value as string;
+      }
+    }
+    
     console.log('[FaithfulConverter] Exact CSS styles for', className, ':', styles);
+    
+    // DEBUG: Specifically check display value
+    if (styles.display) {
+      console.log(`[DISPLAY CHECK] Raw value: "${rawStyles.display}"`);
+      console.log(`[DISPLAY CHECK] Clean value: "${styles.display}"`);
+      console.log(`[DISPLAY CHECK] Is grid? ${styles.display === 'grid'}`);
+      console.log(`[DISPLAY CHECK] Is flex? ${styles.display === 'flex'}`);
+    }
     
     // Get current element's layout context with parent context
     const layoutContext = CSSLayoutPatternDetector.analyzeLayoutContext(styles, element, parentContext);
@@ -1406,7 +1435,14 @@ export class HTMLToFigmaConverter {
       } else {
         // Log key non-matches for debugging
         if (rule.selector.includes('flex') || rule.selector.includes('grid')) {
-          console.log(`  ❌ Rule ${index} DOES NOT MATCH: ${rule.selector}`, rule.declarations);
+          console.log(`  ❌ Rule ${index} DOES NOT MATCH: ${rule.selector}`);
+          // DEBUG: Check if display value has quotes
+          if (rule.declarations.display) {
+            console.log(`     Display value: "${rule.declarations.display}"`);
+            console.log(`     Has quotes? ${rule.declarations.display.includes("'")}`);
+            console.log(`     Equals 'grid'? ${rule.declarations.display === 'grid'}`);
+            console.log(`     Equals "'grid'"? ${rule.declarations.display === "'grid'"}`);
+          }
         }
       }
     });
