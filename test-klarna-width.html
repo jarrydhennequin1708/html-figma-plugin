@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      background-color: #000000;
+      color: white;
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    
+    /* Test explicit width */
+    .klarna-logo {
+      width: 140px;
+      height: 40px;
+      background-color: #ff69b4;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      margin-bottom: 20px;
+    }
+    
+    /* Another element with different width */
+    .other-logo {
+      width: 200px;
+      height: 50px;
+      background-color: #4169e1;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+    
+    /* Element without width (should use default) */
+    .no-width {
+      background-color: #32cd32;
+      padding: 20px;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+  <div class="klarna-logo">KLARNA (140px)</div>
+  <div class="other-logo">OTHER (200px)</div>
+  <div class="no-width">No Width Specified</div>
+</body>
+</html>

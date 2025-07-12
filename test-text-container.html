@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      background-color: #000000;
+      color: white;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    
+    .main-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px;
+    }
+    
+    /* Text elements - should HUG content */
+    h1 {
+      font-size: 32px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 16px;
+    }
+    
+    .subtitle {
+      font-size: 18px;
+      font-weight: 400;
+      color: #999999;
+      margin-bottom: 32px;
+    }
+    
+    /* Container sections - should FILL width and HUG height */
+    .comparison-section {
+      background-color: #1a1a1a;
+      padding: 32px;
+      border-radius: 8px;
+      margin-bottom: 24px;
+    }
+    
+    .global-reach {
+      background-color: #0f0f0f;
+      padding: 24px;
+      border: 1px solid #333;
+      margin-bottom: 24px;
+    }
+    
+    .header-text {
+      padding: 20px;
+      background-color: rgba(255, 255, 255, 0.05);
+    }
+    
+    /* Flex container test */
+    .flex-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px;
+      background-color: #222;
+    }
+    
+    .flex-item {
+      padding: 12px;
+      background-color: #333;
+    }
+  </style>
+</head>
+<body>
+  <div class="main-container">
+    <!-- Text elements that should HUG -->
+    <h1>Main Heading Text</h1>
+    <div class="subtitle">This is a subtitle that should hug its content</div>
+    
+    <!-- Container sections that should FILL width -->
+    <div class="comparison-section">
+      <h2>Comparison Section</h2>
+      <p>This section should fill the parent width and hug its content height.</p>
+    </div>
+    
+    <div class="global-reach">
+      <h3>Global Reach</h3>
+      <p>Another container that should fill width and adapt to content.</p>
+    </div>
+    
+    <div class="header-text">
+      <p>Header text container with padding and background.</p>
+    </div>
+    
+    <!-- Flex container test -->
+    <div class="flex-row">
+      <div class="flex-item">Item 1</div>
+      <div class="flex-item">Item 2</div>
+      <div class="flex-item">Item 3</div>
+    </div>
+  </div>
+</body>
+</html>

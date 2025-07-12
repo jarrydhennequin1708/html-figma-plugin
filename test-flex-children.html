@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      background-color: #000000;
+      color: white;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+    
+    /* Test case 1: Flex container with explicit width child */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      background-color: #1a1a1a;
+      margin-bottom: 20px;
+    }
+    
+    .klarna-logo {
+      width: 140px;
+      height: 40px;
+      background-color: #ff69b4;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+    }
+    
+    /* Test case 2: Flex child without width (should fill) */
+    .content-section {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      background-color: #222;
+      padding: 24px;
+      margin-bottom: 20px;
+    }
+    
+    .subtitle {
+      font-size: 18px;
+      font-weight: 400;
+      color: #999;
+      /* No width specified - should fill parent */
+    }
+    
+    /* Test case 3: Mixed flex children */
+    .flex-row {
+      display: flex;
+      gap: 16px;
+      background-color: #333;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .fixed-item {
+      width: 100px;
+      padding: 12px;
+      background-color: #555;
+    }
+    
+    .fill-item {
+      /* No width - should fill remaining space */
+      padding: 12px;
+      background-color: #666;
+    }
+    
+    /* Test case 4: Text elements in flex */
+    .text-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 16px;
+      background-color: #2a2a2a;
+    }
+    
+    .title {
+      font-size: 24px;
+      font-weight: 700;
+    }
+    
+    .label {
+      font-size: 14px;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+  <!-- Test 1: Klarna logo with explicit width -->
+  <div class="header">
+    <div class="klarna-logo">KLARNA</div>
+    <div>Menu Items</div>
+  </div>
+  
+  <!-- Test 2: Subtitle without width in flex column -->
+  <div class="content-section">
+    <h2>Main Title</h2>
+    <div class="subtitle">This subtitle should fill the parent width in the flex column</div>
+    <p>Regular paragraph content below.</p>
+  </div>
+  
+  <!-- Test 3: Mixed flex children -->
+  <div class="flex-row">
+    <div class="fixed-item">Fixed 100px</div>
+    <div class="fill-item">This should fill the remaining space</div>
+    <div class="fixed-item">Fixed 100px</div>
+  </div>
+  
+  <!-- Test 4: Text elements in flex -->
+  <div class="text-row">
+    <div class="title">Page Title</div>
+    <div class="label">Status: Active</div>
+  </div>
+</body>
+</html>
