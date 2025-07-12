@@ -50,7 +50,7 @@ figma.ui.onmessage = async (msg) => {
       container.name = 'Converted HTML';
       container.layoutMode = 'VERTICAL';
       container.primaryAxisSizingMode = 'AUTO';
-      container.counterAxisSizingMode = 'AUTO';
+      container.counterAxisSizingMode = 'FIXED';  // Fixed width for main container
       container.fills = []; // Transparent background
       container.itemSpacing = 0;
       
@@ -59,6 +59,12 @@ figma.ui.onmessage = async (msg) => {
       
       // CRITICAL: Set container to reasonable size to avoid 1px issues
       container.resize(1400, 800);
+      
+      // Ensure container doesn't shrink
+      container.constraints = {
+        horizontal: 'SCALE',
+        vertical: 'MIN'
+      };
       
       // Create nodes with all fixes applied
       for (const element of elements) {
@@ -69,6 +75,24 @@ figma.ui.onmessage = async (msg) => {
           console.error('[PLUGIN] Failed to create node:', error);
         }
       }
+      
+      // CRITICAL: Post-process to fix width issues
+      console.log('[POST-PROCESS] Fixing width issues...');
+      fixWidthIssues(container);
+      
+      // Additional delayed fix to catch any remaining issues
+      setTimeout(() => {
+        console.log('[DELAYED FIX] Running secondary width fix...');
+        fixWidthIssues(container);
+        
+        // Force a layout update
+        if ('layoutMode' in container && container.layoutMode !== 'NONE') {
+          const temp = container.layoutMode;
+          container.layoutMode = 'NONE';
+          container.layoutMode = temp;
+          console.log('[DELAYED FIX] Forced layout refresh');
+        }
+      }, 100);
       
       // Select and zoom
       figma.currentPage.selection = [container];
@@ -323,4 +347,52 @@ async function createFrameNodeWithFixes(element: any, parent: FrameNode, propert
   }
   
   return frame;
+}
+
+// Post-process to fix width issues
+function fixWidthIssues(node: SceneNode, depth = 0): void {
+  const indent = '  '.repeat(depth);
+  
+  if ('layoutSizingHorizontal' in node) {
+    const frame = node as FrameNode;
+    
+    // Log current state
+    console.log(`${indent}[FIX] ${frame.name}: width=${frame.width}, layoutSizingH=${frame.layoutSizingHorizontal}, parent=${frame.parent?.name}`);
+    
+    // Check if this frame has 1px width and should fill
+    if (frame.width <= 1 && frame.parent && 'layoutMode' in frame.parent) {
+      const parent = frame.parent as FrameNode;
+      
+      // Only fix if parent has Auto Layout
+      if (parent.layoutMode !== 'NONE') {
+        console.log(`${indent}[FIX] Fixing ${frame.name} - setting to FILL`);
+        frame.layoutSizingHorizontal = 'FILL';
+        
+        // For max-width containers, ensure they also have proper alignment
+        if (frame.name.includes('container') || frame.name.includes('dashboard')) {
+          frame.layoutAlign = 'CENTER';
+          console.log(`${indent}[FIX] Centered container: ${frame.name}`);
+        }
+      }
+    }
+    
+    // Also fix frames that should fill but aren't set correctly
+    if (frame.parent && 'layoutMode' in frame.parent && frame.parent.layoutMode !== 'NONE') {
+      const shouldFill = frame.name.includes('header') || 
+                        frame.name.includes('grid') || 
+                        frame.name.includes('section') ||
+                        frame.name.includes('card') ||
+                        frame.name.includes('container');
+      
+      if (shouldFill && frame.layoutSizingHorizontal !== 'FILL') {
+        console.log(`${indent}[FIX] Setting ${frame.name} to FILL based on name pattern`);
+        frame.layoutSizingHorizontal = 'FILL';
+      }
+    }
+  }
+  
+  // Recursively fix children
+  if ('children' in node) {
+    node.children.forEach(child => fixWidthIssues(child, depth + 1));
+  }
 }
