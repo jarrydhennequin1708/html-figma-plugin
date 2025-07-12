@@ -1085,8 +1085,19 @@ class SimpleCSSParser {
       console.log('[CSS WIDTH] Final computed width for', element.className, ':', styles.width);
     }
     
-    console.log('[CSS PARSER] Final computed styles:', styles);
-    return styles;
+    // CRITICAL FIX: Clean any remaining quotes from values
+    const cleanedStyles: Record<string, string> = {};
+    for (const [key, value] of Object.entries(styles)) {
+      if (typeof value === 'string') {
+        // Remove quotes from beginning and end
+        cleanedStyles[key] = value.replace(/^['"]|['"]$/g, '');
+      } else {
+        cleanedStyles[key] = value;
+      }
+    }
+    
+    console.log('[CSS PARSER] Final computed styles:', cleanedStyles);
+    return cleanedStyles;
   }
 
   matchesSelector(element: SimpleElement, selector: string): boolean {
@@ -1230,18 +1241,40 @@ export class HTMLToFigmaConverter {
     console.log('[CSS DEBUG] Input CSS length:', css.length);
     console.log('[CSS DEBUG] CSS content preview:', css.substring(0, 500));
     
+    // CRITICAL DEBUG: Check if CSS already has quotes
+    if (css.includes("display: 'grid'") || css.includes('display: "grid"')) {
+      console.error('[CSS ERROR] CSS already contains quoted values!');
+      console.error('[CSS ERROR] Example:', css.match(/display:\s*['"][^'"]+['"]/)?.[0]);
+      console.error('[CSS ERROR] This means the UI is sending pre-quoted CSS');
+    }
+    
     // CRITICAL: Run CSS source debugging
     CSSSourceDebugger.debugCSSSheets();
     
     // CRITICAL: Debug CSS parsing order BEFORE parsing
     CSSSourceDebugger.debugCSSParsingOrder(css);
     
+    // CRITICAL FIX: Pre-process CSS to remove any quotes that might be in the input
+    const cleanedCSS = css.replace(/:\s*'([^']*)'/g, ': $1').replace(/:\s*"([^"]*)"/g, ': $1');
+    if (cleanedCSS !== css) {
+      console.warn('[CSS FIX] Removed quotes from CSS input');
+      console.log('[CSS FIX] Example before:', css.match(/:\s*['"][^'"]+['"]/)?.[0]);
+      console.log('[CSS FIX] Example after:', cleanedCSS.match(/:\s*[^;]+/)?.[0]);
+    }
+    
     // Parse CSS 
-    this.cssParser = new SimpleCSSParser(css);
+    this.cssParser = new SimpleCSSParser(cleanedCSS);
     console.log('[FaithfulConverter] Parsed', this.cssParser.rules.length, 'CSS rules');
     
     // CRITICAL: Debug specific CSS rules AFTER parsing
     CSSSourceDebugger.debugSpecificCSSRules(this.cssParser);
+    
+    // DEBUG: Check parsed rules for quotes
+    this.cssParser.rules.forEach((rule, index) => {
+      if (rule.declarations.display && rule.declarations.display.includes("'")) {
+        console.error(`[CSS ERROR] Rule ${index} still has quotes in display value:`, rule.declarations.display);
+      }
+    });
     
     // Log parsed CSS rules
     console.log('[CSS DEBUG] Parsed CSS rules:');

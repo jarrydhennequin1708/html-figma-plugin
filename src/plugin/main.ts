@@ -38,6 +38,12 @@ figma.ui.onmessage = async (msg) => {
       console.log('[PLUGIN] Converting HTML:', msg.html?.substring(0, 100));
       console.log('[PLUGIN] Converting CSS:', msg.css?.substring(0, 100));
       
+      // DEBUG: Check if CSS has quotes in it
+      if (msg.css && msg.css.includes("display: 'grid'")) {
+        console.warn('[CSS DEBUG] WARNING: CSS contains quoted values like "display: \'grid\'"');
+        console.warn('[CSS DEBUG] This will prevent layout detection!');
+      }
+      
       const elements = await converter.convert(msg.html || '', msg.css || '');
       console.log('[PLUGIN] Converter returned', elements.length, 'elements');
       
