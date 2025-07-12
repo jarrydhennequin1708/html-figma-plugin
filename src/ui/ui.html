@@ -64,179 +64,33 @@
     const convertBtn = document.getElementById('convert-btn');
     const statusDiv = document.getElementById('status');
 
-    // Function to collect computed styles from rendered HTML
-    function collectComputedStyles(element) {
-      const computed = window.getComputedStyle(element);
-      const rect = element.getBoundingClientRect();
-      
-      // Skip text nodes and comments
-      if (element.nodeType !== 1) return null;
-      
-      // Collect all computed properties we need
-      const data = {
-        tagName: element.tagName.toLowerCase(),
-        textContent: element.childNodes.length === 1 && 
-                     element.childNodes[0].nodeType === 3 ? 
-                     element.childNodes[0].textContent : null,
-        rect: {
-          width: rect.width,
-          height: rect.height,
-          x: rect.x,
-          y: rect.y
-        },
-        computedStyles: {
-          // Layout
-          display: computed.display,
-          position: computed.position,
-          flexDirection: computed.flexDirection,
-          justifyContent: computed.justifyContent,
-          alignItems: computed.alignItems,
-          flexWrap: computed.flexWrap,
-          gap: computed.gap,
-          
-          // Sizing
-          width: computed.width,
-          height: computed.height,
-          minWidth: computed.minWidth,
-          maxWidth: computed.maxWidth,
-          minHeight: computed.minHeight,
-          maxHeight: computed.maxHeight,
-          flexGrow: computed.flexGrow,
-          flexShrink: computed.flexShrink,
-          flexBasis: computed.flexBasis,
-          
-          // Spacing
-          marginTop: computed.marginTop,
-          marginRight: computed.marginRight,
-          marginBottom: computed.marginBottom,
-          marginLeft: computed.marginLeft,
-          paddingTop: computed.paddingTop,
-          paddingRight: computed.paddingRight,
-          paddingBottom: computed.paddingBottom,
-          paddingLeft: computed.paddingLeft,
-          
-          // Visual
-          backgroundColor: computed.backgroundColor,
-          backgroundImage: computed.backgroundImage,
-          opacity: computed.opacity,
-          
-          // Border
-          borderTopWidth: computed.borderTopWidth,
-          borderRightWidth: computed.borderRightWidth,
-          borderBottomWidth: computed.borderBottomWidth,
-          borderLeftWidth: computed.borderLeftWidth,
-          borderTopColor: computed.borderTopColor,
-          borderRightColor: computed.borderRightColor,
-          borderBottomColor: computed.borderBottomColor,
-          borderLeftColor: computed.borderLeftColor,
-          borderTopLeftRadius: computed.borderTopLeftRadius,
-          borderTopRightRadius: computed.borderTopRightRadius,
-          borderBottomRightRadius: computed.borderBottomRightRadius,
-          borderBottomLeftRadius: computed.borderBottomLeftRadius,
-          
-          // Text
-          color: computed.color,
-          fontSize: computed.fontSize,
-          fontFamily: computed.fontFamily,
-          fontWeight: computed.fontWeight,
-          fontStyle: computed.fontStyle,
-          lineHeight: computed.lineHeight,
-          letterSpacing: computed.letterSpacing,
-          textAlign: computed.textAlign,
-          textTransform: computed.textTransform,
-          
-          // Effects
-          boxShadow: computed.boxShadow,
-          filter: computed.filter
-        },
-        children: []
-      };
-      
-      // Recursively collect children
-      for (const child of element.children) {
-        const childData = collectComputedStyles(child);
-        if (childData) {
-          data.children.push(childData);
-        }
-      }
-      
-      return data;
-    }
+    // Simple UI handlers
 
-    // Update the convert button handler
+    // Update the convert button handler to send standard message format
     convertBtn.onclick = () => {
       console.log('🚀 Convert button clicked');
       statusDiv.textContent = 'Converting...';
+      statusDiv.style.color = '#666';
       
       const html = htmlInput.value.trim();
       const css = cssInput.value.trim();
       
       if (!html) {
         statusDiv.textContent = '❌ Please enter some HTML';
+        statusDiv.style.color = '#d32f2f';
         return;
       }
       
-      // Create a hidden iframe to render the HTML/CSS
-      const iframe = document.createElement('iframe');
-      iframe.style.position = 'absolute';
-      iframe.style.left = '-9999px';
-      iframe.style.width = '1400px'; // Match your target width
-      iframe.style.height = '1000px';
-      document.body.appendChild(iframe);
-      
-      try {
-        // Write HTML and CSS to iframe
-        const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-        iframeDoc.open();
-        iframeDoc.write(`
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <style>${css}</style>
-            </head>
-            <body style="margin: 0; padding: 0;">
-              ${html}
-            </body>
-          </html>
-        `);
-        iframeDoc.close();
-        
-        // Wait for render, then collect styles
-        setTimeout(() => {
-          try {
-            const rootElement = iframeDoc.body.firstElementChild;
-            if (rootElement) {
-              console.log('📊 Collecting computed styles...');
-              const computedData = collectComputedStyles(rootElement);
-              console.log('📤 Sending computed data to plugin');
-              
-              // Send to plugin
-              parent.postMessage({
-                pluginMessage: {
-                  type: 'create-from-computed',
-                  data: computedData
-                }
-              }, '*');
-            } else {
-              statusDiv.textContent = '❌ No root element found in HTML';
-            }
-          } catch (error) {
-            console.error('Error collecting styles:', error);
-            statusDiv.textContent = '❌ Error: ' + error.message;
-          } finally {
-            // Cleanup
-            document.body.removeChild(iframe);
-          }
-        }, 100); // Small delay to ensure rendering
-      } catch (error) {
-        console.error('Error creating iframe:', error);
-        statusDiv.textContent = '❌ Error: ' + error.message;
-        if (iframe.parentNode) {
-          document.body.removeChild(iframe);
+      // Send message to plugin
+      parent.postMessage({
+        pluginMessage: {
+          type: 'convert',
+          html: html,
+          css: css
         }
-      }
+      }, '*');
     };
-
+    
     window.onmessage = (event) => {
       console.log('📨 Received message:', event.data);
       const msg = event.data.pluginMessage;
@@ -244,12 +98,18 @@
       
       console.log('🔄 Plugin message:', msg);
       
-      if (msg.type === 'success') {
-        console.log('✅ Conversion successful');
-        statusDiv.textContent = '✅ Conversion complete!';
+      if (msg.type === 'status') {
+        console.log('⏳ Status update:', msg.message);
+        statusDiv.textContent = msg.message;
+        statusDiv.style.color = '#1976d2';
+      } else if (msg.type === 'success') {
+        console.log('✅ Conversion successful:', msg.message);
+        statusDiv.textContent = '✅ ' + msg.message;
+        statusDiv.style.color = '#2e7d32';
       } else if (msg.type === 'error') {
         console.log('❌ Conversion error:', msg.message);
         statusDiv.textContent = '❌ Error: ' + msg.message;
+        statusDiv.style.color = '#d32f2f';
       }
     };
   </script>
