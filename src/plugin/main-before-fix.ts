@@ -1,12 +1,12 @@
 // ========================================
-// BROWSER-GRADE CSS CONVERTER (FIXED)
+// BROWSER-GRADE CSS CONVERTER (ACTIVE)
 // ========================================
 
 import { FigmaCompatibleCSSEngine, ComputedStyle } from '../engine/css-engine-figma';
 import { SimpleFigmaCSSParser, CSSRule } from '../parsers/simple-css-parser-figma';
-import { SimpleHTMLParser } from '../parsers/simple-html-parser';
+import { SimpleHTMLParser } from '../parsers/simple-html-parser'; // Keep existing HTML parser
 
-console.log('🚀 Loading Browser-Grade CSS Converter (FIXED VERSION)...');
+console.log('🚀 Loading Browser-Grade CSS Converter...');
 
 // UI HTML embedded
 const __html__ = `
@@ -59,7 +59,7 @@ const __html__ = `
 </head>
 <body>
   <div class="container">
-    <h2>CodeToFigma - Browser-Grade CSS (Fixed)</h2>
+    <h2>CodeToFigma - Browser-Grade CSS</h2>
     <label for="html-input">HTML:</label>
     <textarea id="html-input" placeholder="Paste HTML here..."></textarea>
     
@@ -120,90 +120,67 @@ const __html__ = `
 `;
 
 // ========================================
-// BROWSER-GRADE CONVERTER CLASS (FIXED)
+// BROWSER-GRADE CONVERTER CLASS
 // ========================================
 
 class BrowserGradeConverter {
   private cssEngine: FigmaCompatibleCSSEngine;
-  private computedStylesMap: Map<any, ComputedStyle> = new Map();
   
   constructor() {
-    console.log('🏗️ Initializing Browser-Grade Converter (Fixed)');
+    console.log('🏗️ Initializing Browser-Grade Converter');
     this.cssEngine = new FigmaCompatibleCSSEngine();
   }
   
   async convert(html: string, css: string): Promise<FrameNode[]> {
-    console.log('🔄 Starting browser-grade conversion (FIXED)...');
+    console.log('🔄 Starting browser-grade conversion...');
     console.log('📝 HTML length:', html.length);
     console.log('🎨 CSS length:', css.length);
     
     try {
-      // 1. Parse HTML
+      // 1. Parse HTML (keep existing parser)
       console.log('📄 Parsing HTML...');
       const htmlParser = new SimpleHTMLParser(html);
       const elements = htmlParser.parse();
       console.log(`✅ Parsed ${elements.length} HTML elements`);
       
-      // 2. Parse CSS
+      // 2. Parse CSS with Figma-compatible parser
       console.log('🎨 Parsing CSS...');
       const cssParser = new SimpleFigmaCSSParser(css);
       const cssRules = cssParser.parsedRules;
       console.log(`✅ Parsed ${cssRules.length} CSS rules`);
       
-      // 3. Compute styles
+      // 3. Compute styles (THE KEY DIFFERENCE FROM OLD SYSTEM)
       console.log('💻 Computing styles with browser-grade engine...');
-      this.computedStylesMap.clear();
-      this.computeAllStyles(elements, cssRules, this.computedStylesMap);
-      console.log(`✅ Computed styles for ${this.computedStylesMap.size} elements`);
+      const computedStylesMap = new Map<any, ComputedStyle>();
+      this.computeAllStyles(elements, cssRules, computedStylesMap);
+      console.log(`✅ Computed styles for ${computedStylesMap.size} elements`);
       
-      // 4. Create root frame FIRST
-      console.log('🔧 Creating root frame...');
-      const rootFrame = figma.createFrame();
-      rootFrame.name = "Converted Design";
-      rootFrame.layoutMode = 'VERTICAL';
-      rootFrame.primaryAxisSizingMode = 'AUTO';
-      rootFrame.counterAxisSizingMode = 'AUTO';
-      rootFrame.fills = []; // Transparent by default
+      // 4. Create Figma nodes with accurate styles
+      console.log('🔧 Creating Figma nodes...');
+      const figmaNodes: FrameNode[] = [];
       
-      // Find body element or use first element
-      const bodyElement = elements.find(el => el.tagName === 'body') || elements[0];
-      const bodyStyle = this.computedStylesMap.get(bodyElement);
-      
-      if (bodyStyle) {
-        // Apply body background
-        await this.applyVisualProperties(rootFrame, bodyStyle);
+      for (const element of elements) {
+        const computedStyle = computedStylesMap.get(element);
+        if (!computedStyle) {
+          console.warn('⚠️ No computed style for element:', element);
+          continue;
+        }
         
-        // Set root frame size
-        const maxWidth = bodyStyle['max-width'];
-        if (maxWidth && maxWidth !== 'none') {
-          const width = parseFloat(maxWidth as string);
-          if (!isNaN(width) && width > 0) {
-            rootFrame.resize(Math.round(width), 800);
-          }
-        } else {
-          rootFrame.resize(1400, 800); // Default size
+        console.log('🎨 Creating node for element:', {
+          tag: element.tagName || 'text',
+          background: computedStyle['background-color'],
+          border: computedStyle['border-top-width'],
+          display: computedStyle['display']
+        });
+        
+        const figmaNode = await this.createFigmaNode(element, computedStyle);
+        if (figmaNode && 'layoutMode' in figmaNode) {
+          figmaNodes.push(figmaNode as FrameNode);
         }
       }
       
-      // Add root frame to page
-      figma.currentPage.appendChild(rootFrame);
-      
-      // 5. Create child nodes
-      console.log('🔧 Creating child nodes...');
-      const childElements = bodyElement?.children || elements;
-      
-      for (const element of childElements) {
-        const computedStyle = this.computedStylesMap.get(element);
-        if (!computedStyle) continue;
-        
-        await this.createFigmaNode(element, computedStyle, rootFrame);
-      }
-      
-      // Center the view on the new design
-      figma.viewport.scrollAndZoomIntoView([rootFrame]);
-      
-      console.log(`✅ Created design with root frame and children`);
-      return [rootFrame];
+      console.log(`✅ Created ${figmaNodes.length} Figma nodes`);
+      return figmaNodes;
       
     } catch (error) {
       console.error('❌ Conversion failed:', error);
@@ -229,6 +206,7 @@ class BrowserGradeConverter {
     elements.forEach((element, index) => {
       console.log(`🎯 Computing styles for element ${index}:`, element.tagName || 'text');
       
+      // THIS IS THE KEY: Use browser-grade CSS computation
       const computedStyle = this.cssEngine.computeStyles(
         element, 
         cssRules, 
@@ -257,19 +235,14 @@ class BrowserGradeConverter {
   
   private async createFigmaNode(
     element: any, 
-    computedStyle: ComputedStyle,
-    parent: FrameNode
+    computedStyle: ComputedStyle
   ): Promise<FrameNode | TextNode | null> {
     
     try {
       if (element.type === 'text') {
-        const textNode = await this.createTextNode(element, computedStyle);
-        if (textNode && parent) {
-          parent.appendChild(textNode);
-        }
-        return textNode;
+        return await this.createTextNode(element, computedStyle);
       } else {
-        return await this.createFrameNode(element, computedStyle, parent);
+        return await this.createFrameNode(element, computedStyle);
       }
     } catch (error) {
       console.error(`❌ Failed to create node:`, error);
@@ -279,44 +252,23 @@ class BrowserGradeConverter {
   
   private async createFrameNode(
     element: any, 
-    computedStyle: ComputedStyle,
-    parent: FrameNode | null = null
+    computedStyle: ComputedStyle
   ): Promise<FrameNode> {
     
     console.log('🔲 Creating frame with computed styles');
     const frame = figma.createFrame();
     
-    // CRITICAL: Add to parent FIRST if parent exists
-    if (parent) {
-      parent.appendChild(frame);
-    }
-    
-    // 1. Apply visual properties (can be done anytime after creation)
+    // 1. Apply visual properties FIRST (critical order!)
     await this.applyVisualProperties(frame, computedStyle);
     
-    // 2. Apply layout mode if needed (makes this an Auto Layout frame)
-    const hasAutoLayout = this.applyLayoutProperties(frame, computedStyle);
+    // 2. Apply layout properties
+    this.applyLayoutProperties(frame, computedStyle);
     
-    // 3. Apply sizing ONLY if this is a child of an Auto Layout frame
-    if (parent && 'layoutMode' in parent && parent.layoutMode !== 'NONE') {
-      this.applySizingProperties(frame, computedStyle);
-    } else if (!parent) {
-      // Root frames just get explicit sizes
-      this.applyExplicitSizes(frame, computedStyle);
-    }
+    // 3. Apply sizing
+    this.applySizingProperties(frame, computedStyle);
     
     // 4. Set name
     frame.name = this.generateNodeName(element, computedStyle);
-    
-    // 5. Process children
-    if (element.children && element.children.length > 0) {
-      for (const child of element.children) {
-        const childStyle = this.computedStylesMap.get(child);
-        if (childStyle) {
-          await this.createFigmaNode(child, childStyle, frame);
-        }
-      }
-    }
     
     return frame;
   }
@@ -370,7 +322,7 @@ class BrowserGradeConverter {
     }
   }
   
-  private applyLayoutProperties(frame: FrameNode, computedStyle: ComputedStyle): boolean {
+  private applyLayoutProperties(frame: FrameNode, computedStyle: ComputedStyle): void {
     const display = computedStyle.display as string;
     
     if (display === 'flex') {
@@ -389,84 +341,24 @@ class BrowserGradeConverter {
       frame.paddingBottom = Math.round(parseFloat(computedStyle['padding-bottom'] as string) || 0);
       frame.paddingLeft = Math.round(parseFloat(computedStyle['padding-left'] as string) || 0);
       
-      // Default Auto Layout settings
-      frame.primaryAxisSizingMode = 'AUTO';
-      frame.counterAxisSizingMode = 'AUTO';
-      frame.layoutAlign = 'STRETCH';
-      
       console.log('✅ Applied Auto Layout:', frame.layoutMode);
-      return true;
-    } else if (display === 'grid') {
-      // Simulate grid with wrapped horizontal Auto Layout
-      frame.layoutMode = 'HORIZONTAL';
-      frame.layoutWrap = 'WRAP';
-      
-      const gap = computedStyle['gap'] as string || computedStyle['grid-gap'] as string;
-      if (gap) {
-        const gapValue = Math.round(parseFloat(gap) || 0);
-        frame.itemSpacing = gapValue;
-        frame.counterAxisSpacing = gapValue;
-      }
-      
-      frame.primaryAxisSizingMode = 'AUTO';
-      frame.counterAxisSizingMode = 'AUTO';
-      
-      console.log('✅ Applied Grid simulation with wrapped Auto Layout');
-      return true;
     }
-    
-    return false;
   }
   
   private applySizingProperties(frame: FrameNode, computedStyle: ComputedStyle): void {
-    // Only called for children of Auto Layout frames
-    const width = computedStyle.width;
-    const maxWidth = computedStyle['max-width'];
-    
-    // Horizontal sizing
-    if (width === '100%' || width === 'auto') {
-      frame.layoutSizingHorizontal = 'FILL';
-    } else if (typeof width === 'number' && width > 0) {
-      frame.layoutSizingHorizontal = 'FIXED';
-      frame.resize(Math.round(width), frame.height);
-    } else {
-      frame.layoutSizingHorizontal = 'HUG';
-    }
-    
-    // Vertical sizing - almost always HUG for web content
-    frame.layoutSizingVertical = 'HUG';
-    
-    // Handle max-width constraint
-    if (maxWidth && maxWidth !== 'none') {
-      const maxWidthValue = parseFloat(maxWidth as string);
-      if (!isNaN(maxWidthValue) && maxWidthValue > 0) {
-        frame.maxWidth = Math.round(maxWidthValue);
-      }
-    }
-  }
-  
-  private applyExplicitSizes(frame: FrameNode, computedStyle: ComputedStyle): void {
-    // For root frames or non-Auto Layout children
     const width = computedStyle.width as number;
     const height = computedStyle.height as number;
     
-    let finalWidth = 800; // Default width
-    let finalHeight = 600; // Default height
-    
     if (typeof width === 'number' && width > 0) {
-      finalWidth = Math.round(width);
-    } else if (computedStyle['max-width']) {
-      const maxWidth = parseFloat(computedStyle['max-width'] as string);
-      if (!isNaN(maxWidth) && maxWidth > 0) {
-        finalWidth = Math.round(maxWidth);
-      }
+      frame.resize(Math.round(width), Math.round(height || 100));
+    } else {
+      // Default sizing for elements without explicit dimensions
+      frame.resize(200, 100);
     }
     
-    if (typeof height === 'number' && height > 0) {
-      finalHeight = Math.round(height);
-    }
-    
-    frame.resize(finalWidth, finalHeight);
+    // Set sizing modes
+    frame.layoutSizingHorizontal = 'HUG';
+    frame.layoutSizingVertical = 'HUG';
   }
   
   private async createTextNode(element: any, computedStyle: ComputedStyle): Promise<TextNode | null> {
@@ -476,31 +368,17 @@ class BrowserGradeConverter {
       
       const textNode = figma.createText();
       textNode.fontName = { family: "Inter", style: "Regular" };
+      textNode.characters = element.content || element.textContent || '';
       
-      // Set text content
-      const content = element.content || element.textContent || '';
-      textNode.characters = content.trim();
+      const fontSize = computedStyle['font-size'] as number;
+      if (fontSize) {
+        textNode.fontSize = Math.round(fontSize);
+      }
       
-      // Apply text styles
-      const fontSize = parseFloat(computedStyle['font-size'] as string) || 16;
-      textNode.fontSize = Math.round(fontSize);
-      
-      // Text color
       const color = this.parseColor(computedStyle['color'] as string);
       if (color) {
         textNode.fills = [{ type: 'SOLID', color: color }];
       }
-      
-      // Text alignment
-      const textAlign = computedStyle['text-align'] as string;
-      if (textAlign === 'center') {
-        textNode.textAlignHorizontal = 'CENTER';
-      } else if (textAlign === 'right') {
-        textNode.textAlignHorizontal = 'RIGHT';
-      }
-      
-      // Auto resize
-      textNode.textAutoResize = 'WIDTH_AND_HEIGHT';
       
       return textNode;
     } catch (error) {
@@ -566,9 +444,12 @@ figma.ui.onmessage = async (msg) => {
   
   if (msg.type === 'convert') {
     try {
-      console.log('🚀 Starting Browser-Grade Conversion (FIXED)...');
+      console.log('🚀 Starting Browser-Grade Conversion...');
       
       const { html, css } = msg;
+      
+      // REMOVE quote contamination handling (old system workaround)
+      // The new system handles CSS properly without these hacks
       
       console.log('📝 Input received:');
       console.log('- HTML length:', html.length);
@@ -602,4 +483,4 @@ figma.ui.onmessage = async (msg) => {
   }
 };
 
-console.log('✅ Browser-Grade CSS Plugin (FIXED) loaded successfully!');
+console.log('✅ Browser-Grade CSS Plugin loaded successfully!');
